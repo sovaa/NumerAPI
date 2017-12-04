@@ -39,14 +39,10 @@ class NumerApiManager(object):
     def unzip_data_set(self, dest_path: str, dataset_path: str, dest_filename: str) -> None:
         # remove the ".zip" in the end
         dataset_name = dest_filename[:-4]
-        self._unzip_file(dataset_path, dest_path, dataset_name)
-
-    def _unzip_file(self, src_path, dest_path, filename):
-        """unzips file located at src_path into destination_path"""
         self.logger.info("unzipping file...")
 
         # construct full path (including file name) for unzipping
-        unzip_path = os.path.join(dest_path, filename)
+        unzip_path = os.path.join(dest_path, dataset_name)
 
         # create parent directory for unzipped data
         try:
@@ -55,11 +51,8 @@ class NumerApiManager(object):
             if exception.errno != errno.EEXIST:
                 raise
 
-        # extract data
-        with zipfile.ZipFile(src_path, "r") as z:
+        with zipfile.ZipFile(dataset_path, "r") as z:
             z.extractall(unzip_path)
-
-        return True
 
     def upload_predictions(self, file_path: str) -> dict:
         auth_query = \
@@ -91,6 +84,8 @@ class NumerApiManager(object):
 
     def raw_query(self, query, variables=None, authorization=False):
         """send a raw request to the Numerai's GraphQL API
+
+        TODO: should be split into separate methods so we know what to test for
 
         query (str): the query
         variables (dict): dict of variables

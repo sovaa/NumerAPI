@@ -1,7 +1,24 @@
+from zope.interface import implements
 import pytest
 import os
 
 from numerapi import NumerAPI
+from numerapi import IManager
+
+
+@implements(IManager)
+class MagicManager(object):
+    def download_data_set(self, dest_path: str, dataset_path: str) -> None:
+        # TODO: copy the bz2/zip from tests/data/ to dest_path/dataset_path
+        pass
+
+    def unzip_data_set(self, dest_path: str, dataset_path: str, dest_filename: str) -> None:
+        # TODO: unzip the moved bz2 file that should now be in dest_path/dataset_path
+        pass
+
+    def raw_query(self, query, variables=None, authorization=False):
+        # TODO: should be split into separate methods so we know what to test for
+        pass
 
 
 def test_get_competitions():

@@ -22,16 +22,8 @@ class IManager(Interface):
         :return:
         """
 
-    def _unzip_file(self, src_path, dest_path, filename):
-        """
-
-        :param src_path:
-        :param dest_path:
-        :param filename:
-        :return:
-        """
-
     def raw_query(self, query, variables=None, authorization=False):
+        # TODO: should be split into separate methods so we know what to test for
         """
 
         :param query:
