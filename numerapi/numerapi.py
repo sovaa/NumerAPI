@@ -321,24 +321,7 @@ class NumerAPI(object):
         if submission_id is None:
             raise ValueError('You need to submit something first or provide a submission ID')
 
-        query = '''
-            query($submission_id: String!) {
-              submissions(id: $submission_id) {
-                originality {
-                  pending
-                  value
-                }
-                concordance {
-                  pending
-                  value
-                }
-                consistency
-                validation_logloss
-              }
-            }
-            '''
-        variable = {'submission_id': submission_id}
-        data = self.manager.raw_query(query, variable, authorization=True)
+        data = self.manager.get_submission(submission_id)
         status = data['data']['submissions'][0]
         return status
 
@@ -349,6 +332,7 @@ class NumerAPI(object):
         """
         self.logger.info("uploading prediction...")
         create = self.manager.upload_predictions(file_path)
+
         self.submission_id = create['data']['create_submission']['id']
         return self.submission_id
 
@@ -358,6 +342,7 @@ class NumerAPI(object):
         confidence: your confidence (C) value
         value: amount of NMR you are willing to stake
         """
+        # TODO: does not seem to be complete
 
         query = '''
           mutation($code: String,

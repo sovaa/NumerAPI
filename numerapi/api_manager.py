@@ -15,9 +15,7 @@ class NumerApiManager(object):
         self.api_url = api_url
 
     def download_data_set(self, dest_path: str, dataset_path: str) -> None:
-        # get link to current dataset
-        query = "query {dataset}"
-        url = self.raw_query(query)['data']['dataset']
+        url = self.get_link_to_current_dataset()
 
         # download
         dataset_res = requests.get(url, stream=True)
@@ -34,6 +32,30 @@ class NumerApiManager(object):
         with open(dataset_path, "wb") as f:
             for chunk in dataset_res.iter_content(1024):
                 f.write(chunk)
+
+    def get_submissions(self, submission_id: str) -> dict:
+        query = '''
+            query($submission_id: String!) {
+              submissions(id: $submission_id) {
+                originality {
+                  pending
+                  value
+                }
+                concordance {
+                  pending
+                  value
+                }
+                consistency
+                validation_logloss
+              }
+            }
+            '''
+        variable = {'submission_id': submission_id}
+        return self.manager.raw_query(query, variable, authorization=True)
+
+    def get_link_to_current_dataset(self):
+        query = "query {dataset}"
+        return self.raw_query(query)['data']['dataset']
 
     def upload_predictions(self, file_path: str) -> dict:
         auth_query = \

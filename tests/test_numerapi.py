@@ -1,4 +1,6 @@
 from zope.interface import implementer
+from uuid import uuid4 as uuid
+
 import pytest
 import shutil
 import errno
@@ -63,6 +65,38 @@ class MagicManager(object):
           }
         }
 
+    def get_submissions(self, submission_id: str) -> dict:
+        # TODO: return true status from executor
+        return {
+            'data': {
+                'submissions': [
+                    {
+                        'originality': {
+                            'pending': True,
+                            'value': None
+                        },
+                        'concordance': {
+                            'pending': True,
+                            'value': None
+                        },
+                        'consistency': True,
+                        'validation_logloss': 0.693
+                    }
+                ]
+            }
+        }
+
+    def upload_predictions(self, file_path: str) -> dict:
+        # TODO: score and add to leaderboard
+        submission_id = str(uuid())
+        return {
+            'data': {
+                'create_submission': {
+                    'id': submission_id
+                }
+            }
+        }
+
     def raw_query(self, query, variables=None, authorization=False):
         raise NotImplementedError('do not call this method for this implementation')
 
@@ -84,6 +118,12 @@ def test_get_leaderboard():
     lb = api.get_leaderboard(67)
     assert len(lb) > 0  # TODO: check our submission is here instead
 
+
+def test_upload_predictions():
+    # TODO: verify status of our upload is pending
+    api = NumerAPI(manager=MagicManager())
+    submission_id = api.upload_predictions('some/path.csv')
+    assert len(submission_id.strip()) > 0
 
 
 """
