@@ -83,9 +83,8 @@ class NumerApiManager(object):
         return self.raw_query(create_query, variables, authorization=True)
 
     def raw_query(self, query, variables=None, authorization=False):
+        # TODO: should be split into separate methods so we know what to test for
         """send a raw request to the Numerai's GraphQL API
-
-        TODO: should be split into separate methods so we know what to test for
 
         query (str): the query
         variables (dict): dict of variables

@@ -1,20 +1,41 @@
 from zope.interface import implements
 import pytest
+import shutil
+import errno
 import os
 
 from numerapi import NumerAPI
 from numerapi import IManager
 
+SAMPLE_DATA_DIR = 'tests/data/'
+SAMPLE_TRAIN_FILE = 'sample_training.csv.bz2'
+SAMPLE_TOURN_FILE = 'sample_tournament.csv.bz2'
+SAMPLE_RESULT_FILE = 'sample_result.csv.bz2'
+
+NAME_TRAIN_CSV = 'numerai_training_data.csv'
+NAME_TOURN_CSV = 'numerai_tournament_data.csv'
+
 
 @implements(IManager)
 class MagicManager(object):
     def download_data_set(self, dest_path: str, dataset_path: str) -> None:
-        # TODO: copy the bz2/zip from tests/data/ to dest_path/dataset_path
-        pass
+        try:
+            os.makedirs(dest_path)
+        except OSError as exception:
+            if exception.errno != errno.EEXIST:
+                raise
+
+        shutil.copy(os.path.join(SAMPLE_DATA_DIR, SAMPLE_TRAIN_FILE), dataset_path)
+        shutil.copy(os.path.join(SAMPLE_DATA_DIR, SAMPLE_TOURN_FILE), dataset_path)
 
     def unzip_data_set(self, dest_path: str, dataset_path: str, dest_filename: str) -> None:
-        # TODO: unzip the moved bz2 file that should now be in dest_path/dataset_path
-        pass
+        shutil.unpack_archive(
+            os.path.join(dest_path, SAMPLE_TRAIN_FILE),
+            os.path.join(dest_path, NAME_TRAIN_CSV), format='bztar')
+
+        shutil.unpack_archive(
+            os.path.join(dest_path, SAMPLE_TOURN_FILE),
+            os.path.join(dest_path, NAME_TOURN_CSV), format='bztar')
 
     def raw_query(self, query, variables=None, authorization=False):
         # TODO: should be split into separate methods so we know what to test for
