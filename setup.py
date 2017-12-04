@@ -12,9 +12,9 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[
-        "numpy",
-        "flake8",
-        "pylint",
-        "requests"
+        "requests",
     ],
+    test_requires=[
+        "pytest",
+    ]
 )

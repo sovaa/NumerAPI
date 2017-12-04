@@ -1,7 +1,7 @@
 import pytest
 import os
 
-from numerapi.numerapi import NumerAPI
+from numerapi import NumerAPI
 
 
 def test_get_competitions():
