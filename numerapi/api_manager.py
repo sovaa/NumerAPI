@@ -63,6 +63,44 @@ class NumerApiManager(object):
         variables = {'filename': submission_auth['filename']}
         return self.raw_query(create_query, variables, authorization=True)
 
+    def get_leaderboard(self, round_num: int) -> dict:
+        query = '''
+            query($number: Int!) {
+              rounds(number: $number) {
+                leaderboard {
+                  consistency
+                  concordance {
+                    pending
+                    value
+                  }
+                  originality {
+                    pending
+                    value
+                  }
+
+                  liveLogloss
+                  submissionId
+                  username
+                  validationLogloss
+                  paymentGeneral {
+                    nmrAmount
+                    usdAmount
+                  }
+                  paymentStaking {
+                    nmrAmount
+                    usdAmount
+                  }
+                  totalPayments {
+                    nmrAmount
+                    usdAmount
+                  }
+                }
+              }
+            }
+        '''
+        arguments = {'number': round_num}
+        return self.raw_query(query, arguments)
+
     def raw_query(self, query, variables=None, authorization=False):
         # TODO: should be split into separate methods so we know what to test for
         """send a raw request to the Numerai's GraphQL API

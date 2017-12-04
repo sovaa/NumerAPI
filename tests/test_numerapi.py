@@ -29,9 +29,42 @@ class MagicManager(object):
         if not os.path.exists(dataset_path):
             shutil.copy(SAMPLE_DATA_SET_PATH, dataset_path)
 
+    def get_leaderboard(self, _: int) -> dict:
+        # TODO: only include submitted solutions during tests
+        return {
+          "data": {
+            "rounds": [
+              {
+                "leaderboard": [
+                  {
+                    "validationLogloss": 0.6818856968749493,
+                    "username": "usigma03",
+                    "totalPayments": {
+                      "usdAmount": "0.00",
+                      "nmrAmount": "18.85"
+                    },
+                    "submissionId": "3983e678-05df-4dc6-b494-0a04f6d1c1fb",
+                    "paymentStaking": None,
+                    "paymentGeneral": None,
+                    "originality": {
+                      "value": True,
+                      "pending": False
+                    },
+                    "liveLogloss": None,
+                    "consistency": 100,
+                    "concordance": {
+                      "value": True,
+                      "pending": False
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+
     def raw_query(self, query, variables=None, authorization=False):
-        # TODO: should be split into separate methods so we know what to test for
-        pass
+        raise NotImplementedError('do not call this method for this implementation')
 
 
 def test_magic_manager_download():
@@ -44,6 +77,13 @@ def test_magic_manager_download():
 
         manager.download_data_set(dest_path, dataset_path)
         assert os.path.exists(dataset_path)
+
+
+def test_get_leaderboard():
+    api = NumerAPI(manager=MagicManager())
+    lb = api.get_leaderboard(67)
+    assert len(lb) > 0  # TODO: check our submission is here instead
+
 
 
 """
@@ -78,12 +118,6 @@ def test_raw_query():
     result = api.raw_query(query)
     assert isinstance(result, dict)
     assert "data" in result
-
-
-def test_get_leaderboard():
-    api = NumerAPI()
-    lb = api.get_leaderboard(67)
-    assert len(lb) == 1425
 
 
 def test_get_staking_leaderboard():

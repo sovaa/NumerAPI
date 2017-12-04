@@ -6,14 +6,13 @@ import os
 import errno
 import zipfile
 
-from numerapi.manager import IManager
 from numerapi.api_manager import NumerApiManager
 
 
 class NumerAPI(object):
     """Wrapper around the Numerai API"""
 
-    def __init__(self, public_id=None, secret_key=None, verbosity="INFO", manager: IManager=NumerApiManager()):
+    def __init__(self, public_id=None, secret_key=None, verbosity="INFO", manager=NumerApiManager()):
         """
         initialize Numerai API wrapper for Python
 
@@ -111,42 +110,7 @@ class NumerAPI(object):
         round_num: The round you are interested in, defaults to current round.
         """
         self.logger.info("getting leaderboard for round {}".format(round_num))
-        query = '''
-            query($number: Int!) {
-              rounds(number: $number) {
-                leaderboard {
-                  consistency
-                  concordance {
-                    pending
-                    value
-                  }
-                  originality {
-                    pending
-                    value
-                  }
-
-                  liveLogloss
-                  submissionId
-                  username
-                  validationLogloss
-                  paymentGeneral {
-                    nmrAmount
-                    usdAmount
-                  }
-                  paymentStaking {
-                    nmrAmount
-                    usdAmount
-                  }
-                  totalPayments {
-                    nmrAmount
-                    usdAmount
-                  }
-                }
-              }
-            }
-        '''
-        arguments = {'number': round_num}
-        result = self.manager.raw_query(query, arguments)
+        result = self.manager.get_leaderboard(round_num)
         return result['data']['rounds'][0]['leaderboard']
 
     def get_staking_leaderboard(self, round_num=0):

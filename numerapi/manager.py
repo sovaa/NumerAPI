@@ -10,6 +10,13 @@ class IManager(Interface):
         :return:
         """
 
+    def get_leaderboard(self, round_num: int) -> dict:
+        """
+
+        :param round_num:
+        :return:
+        """
+
     def raw_query(self, query, variables=None, authorization=False):
         # TODO: should be split into separate methods so we know what to test for
         """
