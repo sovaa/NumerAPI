@@ -3,9 +3,11 @@
 import datetime
 import logging
 import os
+import errno
+import zipfile
 
-from numerapi import IManager
-from numerapi import NumerApiManager
+from numerapi.manager import IManager
+from numerapi.api_manager import NumerApiManager
 
 
 class NumerAPI(object):
@@ -50,7 +52,38 @@ class NumerAPI(object):
         unzip: indicates whether to unzip dataset
         """
         self.logger.info("downloading current dataset...")
+        dest_filename, dataset_path = NumerAPI.get_download_paths(dest_path, dest_filename)
 
+        if os.path.exists(dataset_path):
+            self.logger.info("target file already exists")
+            return dataset_path
+        
+        self.manager.download_data_set(dest_path, dataset_path)
+        if unzip:
+            self.unzip_data_set(dest_path, dataset_path, dest_filename)
+
+        return dataset_path
+
+    def unzip_data_set(self, dest_path: str, dataset_path: str, dest_filename: str) -> None:
+        # remove the ".zip" in the end
+        dataset_name = dest_filename[:-4]
+        self.logger.info("unzipping file...")
+
+        # construct full path (including file name) for unzipping
+        unzip_path = os.path.join(dest_path, dataset_name)
+
+        # create parent directory for unzipped data
+        try:
+            os.makedirs(unzip_path)
+        except OSError as exception:
+            if exception.errno != errno.EEXIST:
+                raise
+
+        with zipfile.ZipFile(dataset_path, "r") as z:
+            z.extractall(unzip_path)
+
+    @staticmethod
+    def get_download_paths(dest_path: str, dest_filename: str) -> (str, str):
         # set up download path
         if dest_filename is None:
             now = datetime.datetime.now().strftime("%Y%m%d")
@@ -61,15 +94,7 @@ class NumerAPI(object):
                 dest_filename += ".zip"
         dataset_path = os.path.join(dest_path, dest_filename)
 
-        if os.path.exists(dataset_path):
-            self.logger.info("target file already exists")
-            return dataset_path
-        
-        self.manager.download_data_set(dest_path, dataset_path)
-        if unzip:
-            self.manager.unzip_data_set(dest_path, dataset_path, dest_filename)
-
-        return dataset_path
+        return dest_filename, dataset_path
 
     def _handle_call_error(self, errors):
         if isinstance(errors, list):
