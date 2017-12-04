@@ -1,17 +1,24 @@
 # -*- coding: utf-8 -*-
 
-import datetime
-import logging
+# System
+import zipfile
+import json
 import os
+import datetime
+import errno
+import logging
 
-from numerapi import IManager
-from numerapi import NumerApiManager
+# Third Party
+import requests
+
+API_TOURNAMENT_URL = 'https://api-tournament.numer.ai'
 
 
 class NumerAPI(object):
+
     """Wrapper around the Numerai API"""
 
-    def __init__(self, public_id=None, secret_key=None, verbosity="INFO", manager: IManager=NumerApiManager()):
+    def __init__(self, public_id=None, secret_key=None, verbosity="INFO"):
         """
         initialize Numerai API wrapper for Python
 
@@ -30,7 +37,6 @@ class NumerAPI(object):
             print("You need to supply both a public id and a secret key.")
             self.token = None
 
-        self.manager = manager
         self.logger = logging.getLogger(__name__)
 
         # set up logging
@@ -40,6 +46,26 @@ class NumerAPI(object):
         log_format = "%(asctime)s %(levelname)s %(name)s: %(message)s"
         logging.basicConfig(format=log_format, level=numeric_log_level)
         self.submission_id = None
+
+    def _unzip_file(self, src_path, dest_path, filename):
+        """unzips file located at src_path into destination_path"""
+        self.logger.info("unzipping file...")
+
+        # construct full path (including file name) for unzipping
+        unzip_path = os.path.join(dest_path, filename)
+
+        # create parent directory for unzipped data
+        try:
+            os.makedirs(unzip_path)
+        except OSError as exception:
+            if exception.errno != errno.EEXIST:
+                raise
+
+        # extract data
+        with zipfile.ZipFile(src_path, "r") as z:
+            z.extractall(unzip_path)
+
+        return True
 
     def download_current_dataset(self, dest_path=".", dest_filename=None,
                                  unzip=True):
@@ -64,10 +90,31 @@ class NumerAPI(object):
         if os.path.exists(dataset_path):
             self.logger.info("target file already exists")
             return dataset_path
-        
-        self.manager.download_data_set(dest_path, dataset_path)
+
+        # get link to current dataset
+        query = "query {dataset}"
+        url = self.raw_query(query)['data']['dataset']
+        # download
+        dataset_res = requests.get(url, stream=True)
+        dataset_res.raise_for_status()
+
+        # create parent folder if necessary
+        try:
+            os.makedirs(dest_path)
+        except OSError as exception:
+            if exception.errno != errno.EEXIST:
+                raise
+
+        # write dataset to file
+        with open(dataset_path, "wb") as f:
+            for chunk in dataset_res.iter_content(1024):
+                f.write(chunk)
+
+        # unzip dataset
         if unzip:
-            self.manager.unzip_data_set(dest_path, dataset_path, dest_filename)
+            # remove the ".zip" in the end
+            dataset_name = dest_filename[:-4]
+            self._unzip_file(dataset_path, dest_path, dataset_name)
 
         return dataset_path
 
@@ -79,6 +126,30 @@ class NumerAPI(object):
         elif isinstance(errors, dict):
             if "detail" in errors:
                 self.logger.error(errors['detail'])
+
+    def raw_query(self, query, variables=None, authorization=False):
+        """send a raw request to the Numerai's GraphQL API
+
+        query (str): the query
+        variables (dict): dict of variables
+        authorization (bool): does the request require authorization
+        """
+        body = {'query': query,
+                'variables': variables}
+        headers = {'Content-type': 'application/json',
+                   'Accept': 'application/json'}
+        if authorization and self.token:
+            public_id, secret_key = self.token
+            headers['Authorization'] = \
+                'Token {}${}'.format(public_id, secret_key)
+        r = requests.post(API_TOURNAMENT_URL, json=body, headers=headers)
+        result = r.json()
+        if "errors" in result:
+            self._handle_call_error(result['errors'])
+            # fail!
+            raise ValueError
+
+        return result
 
     def get_leaderboard(self, round_num=0):
         """ retrieves the leaderboard for the given round
@@ -121,7 +192,7 @@ class NumerAPI(object):
             }
         '''
         arguments = {'number': round_num}
-        result = self.manager.raw_query(query, arguments)
+        result = self.raw_query(query, arguments)
         return result['data']['rounds'][0]['leaderboard']
 
     def get_staking_leaderboard(self, round_num=0):
@@ -152,7 +223,7 @@ class NumerAPI(object):
             }
         '''
         arguments = {'number': round_num}
-        result = self.manager.raw_query(query, arguments)
+        result = self.raw_query(query, arguments)
         stakes = result['data']['rounds'][0]['leaderboard']
         # filter those with actual stakes
         stakes = [item for item in stakes if item["stake"]["soc"] is not None]
@@ -174,7 +245,7 @@ class NumerAPI(object):
               }
             }
         '''
-        result = self.manager.raw_query(query)
+        result = self.raw_query(query)
         return result['data']['rounds']
 
     def get_current_round(self):
@@ -187,7 +258,7 @@ class NumerAPI(object):
               }
             }
         '''
-        data = self.manager.raw_query(query)
+        data = self.raw_query(query)
         round_num = data['data']['rounds'][0]["number"]
         return round_num
 
@@ -203,7 +274,7 @@ class NumerAPI(object):
             }
         }
         """
-        data = self.manager.raw_query(query)['data']['rounds'][0]['leaderboard']
+        data = self.raw_query(query)['data']['rounds'][0]['leaderboard']
         mapping = {item['username']: item['submissionId'] for item in data}
         return mapping
 
@@ -230,7 +301,7 @@ class NumerAPI(object):
             }
           }
         """
-        data = self.manager.raw_query(query, authorization=True)['data']['user']
+        data = self.raw_query(query, authorization=True)['data']['user']
         return data
 
     def get_payments(self):
@@ -254,7 +325,7 @@ class NumerAPI(object):
             }
           }
         """
-        data = self.manager.raw_query(query, authorization=True)['data']['user']
+        data = self.raw_query(query, authorization=True)['data']['user']
         return data['payments']
 
     def get_transactions(self):
@@ -295,7 +366,7 @@ class NumerAPI(object):
             }
           }
         """
-        data = self.manager.raw_query(query, authorization=True)['data']['user']
+        data = self.raw_query(query, authorization=True)['data']['user']
         return data
 
     def get_stakes(self):
@@ -316,7 +387,7 @@ class NumerAPI(object):
             }
           }
         """
-        data = self.manager.raw_query(query, authorization=True)['data']['user']
+        data = self.raw_query(query, authorization=True)['data']['user']
         return data['stakeTxs']
 
     def submission_status(self, submission_id=None):
@@ -349,7 +420,7 @@ class NumerAPI(object):
             }
             '''
         variable = {'submission_id': submission_id}
-        data = self.manager.raw_query(query, variable, authorization=True)
+        data = self.raw_query(query, variable, authorization=True)
         status = data['data']['submissions'][0]
         return status
 
@@ -359,7 +430,31 @@ class NumerAPI(object):
         file_path: CSV file with predictions that will get uploaded
         """
         self.logger.info("uploading prediction...")
-        create = self.manager.upload_predictions(file_path)
+
+        auth_query = \
+            '''
+            query($filename: String!) {
+                submission_upload_auth(filename: $filename) {
+                    filename
+                    url
+                }
+            }
+            '''
+        variable = {'filename': os.path.basename(file_path)}
+        submission_resp = self.raw_query(auth_query, variable, authorization=True)
+        submission_auth = submission_resp['data']['submission_upload_auth']
+        with open(file_path, 'rb') as fh:
+            requests.put(submission_auth['url'], data=fh.read())
+        create_query = \
+            '''
+            mutation($filename: String!) {
+                create_submission(filename: $filename) {
+                    id
+                }
+            }
+            '''
+        variables = {'filename': submission_auth['filename']}
+        create = self.raw_query(create_query, variables, authorization=True)
         self.submission_id = create['data']['create_submission']['id']
         return self.submission_id
 
@@ -393,5 +488,5 @@ class NumerAPI(object):
                      'password': "somepassword",
                      'round': self.get_current_round(),
                      'value': str(value)}
-        result = self.manager.raw_query(query, arguments, authorization=True)
+        result = self.raw_query(query, arguments, authorization=True)
         return result

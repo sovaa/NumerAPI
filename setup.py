@@ -13,7 +13,6 @@ setup(
     zip_safe=False,
     install_requires=[
         "requests",
-        "zope.interface",
     ],
     test_requires=[
         "pytest",
