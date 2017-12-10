@@ -17,6 +17,19 @@ class IManager(Interface):
         :return:
         """
 
+    def get_submission_ids(self):
+        """
+        get leaderboard submission ids for current round
+        :return:
+        """
+
+    def get_current_round(self) -> dict:
+        """
+        get information about the current active round
+
+        :return:
+        """
+
     def get_competitions(self) -> dict:
         """
 

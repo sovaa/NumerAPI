@@ -104,6 +104,25 @@ class MagicManager(object):
             }
         }
 
+    def get_current_round(self) -> dict:
+        rounds = self.competitions.copy()
+
+        if len(rounds) > 0:
+            rounds.sort(key=lambda r: r.number, reverse=True)
+            number = rounds[0].number
+        else:
+            number = -1
+
+        return {
+            "data": {
+                "rounds": [
+                    {
+                        "number": number
+                    }
+                ]
+            }
+        }
+
     def get_submissions(self, submission_id: str) -> dict:
         # TODO: return true status from executor
         return {
@@ -203,14 +222,28 @@ def test_download_current_dataset():
             os.remove('%s.zip' % directory)
 
 
-"""
-
-
 def test_get_current_round():
-    api = NumerAPI()
-    current_round = api.get_current_round()
-    assert current_round >= 82
+    manager = MagicManager()
+    api = NumerAPI(manager=manager)
 
+    manager._create_competition(number=1)
+    current_round = api.get_current_round()
+    assert current_round == 1
+
+    manager._create_competition(number=2)
+    current_round = api.get_current_round()
+    assert current_round == 2
+
+
+def test_get_submission_ids():
+    manager = MagicManager()
+    api = NumerAPI(manager=manager)
+    ids = api.get_submission_ids()
+    assert len(ids) > 0
+    assert isinstance(ids, dict)
+
+
+"""
 
 def test_raw_query():
     api = NumerAPI()
@@ -227,11 +260,6 @@ def test_get_staking_leaderboard():
     assert len(stakes) == 115
 
 
-def test_get_submission_ids():
-    api = NumerAPI()
-    ids = api.get_submission_ids()
-    assert len(ids) > 0
-    assert isinstance(ids, dict)
 
 
 def test_error_handling():

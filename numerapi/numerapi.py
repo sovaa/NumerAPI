@@ -171,32 +171,14 @@ class NumerAPI(object):
         return result['data']['rounds']
 
     def get_current_round(self):
-        """get information about the current active round"""
-        # zero is an alias for the current round!
-        query = '''
-            query {
-              rounds(number: 0) {
-                number
-              }
-            }
-        '''
-        data = self.manager.raw_query(query)
+        data = self.manager.get_current_round()
         round_num = data['data']['rounds'][0]["number"]
         return round_num
 
     def get_submission_ids(self):
         """get dict with username->submission_id mapping"""
-        query = """
-            query {
-              rounds(number: 0) {
-                leaderboard {
-                  username
-                  submissionId
-                }
-            }
-        }
-        """
-        data = self.manager.raw_query(query)['data']['rounds'][0]['leaderboard']
+        data = self.manager.get_submission_ids()
+        data = data['data']['rounds'][0]['leaderboard']
         mapping = {item['username']: item['submissionId'] for item in data}
         return mapping
 

@@ -33,6 +33,31 @@ class NumerApiManager(object):
             for chunk in dataset_res.iter_content(1024):
                 f.write(chunk)
 
+    def get_current_round(self) -> dict:
+        """get information about the current active round"""
+        # zero is an alias for the current round!
+        query = '''
+            query {
+              rounds(number: 0) {
+                number
+              }
+            }
+        '''
+        return self.manager.raw_query(query)
+
+    def get_submission_ids(self):
+        query = """
+            query {
+              rounds(number: 0) {
+                leaderboard {
+                  username
+                  submissionId
+                }
+            }
+        }
+        """
+        return self.manager.raw_query(query)
+
     def get_competitions(self) -> dict:
         query = '''
             query {
