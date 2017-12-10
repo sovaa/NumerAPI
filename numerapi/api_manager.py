@@ -33,6 +33,21 @@ class NumerApiManager(object):
             for chunk in dataset_res.iter_content(1024):
                 f.write(chunk)
 
+    def get_competitions(self) -> dict:
+        query = '''
+            query {
+              rounds {
+                number
+                resolveTime
+                datasetId
+                openTime
+                resolvedGeneral
+                resolvedStaking
+              }
+            }
+        '''
+        return self.raw_query(query)
+
     def get_submissions(self, submission_id: str) -> dict:
         query = '''
             query($submission_id: String!) {
@@ -124,7 +139,6 @@ class NumerApiManager(object):
         return self.raw_query(query, arguments)
 
     def raw_query(self, query, variables=None, authorization=False):
-        # TODO: should be split into separate methods so we know what to test for
         """send a raw request to the Numerai's GraphQL API
 
         query (str): the query

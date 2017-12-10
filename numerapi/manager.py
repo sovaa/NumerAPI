@@ -17,6 +17,13 @@ class IManager(Interface):
         :return:
         """
 
+    def get_competitions(self) -> dict:
+        """
+
+        get all competitions
+        :return: a dict of competitions
+        """
+
     def raw_query(self, query, variables=None, authorization=False):
         # TODO: should be split into separate methods so we know what to test for
         """

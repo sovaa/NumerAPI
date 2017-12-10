@@ -54,22 +54,26 @@ class NumerAPI(object):
         dest_filename, dataset_path = NumerAPI.get_download_paths(dest_path, dest_filename)
 
         if os.path.exists(dataset_path):
-            self.logger.info("target file already exists")
-            return dataset_path
-        
-        self.manager.download_data_set(dest_path, dataset_path)
+            self.logger.info("target file %s already exists" % dataset_path)
+        else:
+            self.manager.download_data_set(dest_path, dataset_path)
+
         if unzip:
-            self.unzip_data_set(dest_path, dataset_path, dest_filename)
+            unzip_dir_path = os.path.join(dest_path, dest_filename[:-4])
+            if os.path.exists(unzip_dir_path):
+                self.logger.info('destination unzip path already exists: %s' % dest_filename)
+            else:
+                self.unzip_data_set(dest_path, dataset_path, dest_filename)
 
         return dataset_path
 
     def unzip_data_set(self, dest_path: str, dataset_path: str, dest_filename: str) -> None:
         # remove the ".zip" in the end
         dataset_name = dest_filename[:-4]
-        self.logger.info("unzipping file...")
 
         # construct full path (including file name) for unzipping
         unzip_path = os.path.join(dest_path, dataset_name)
+        self.logger.info('unzipping %s to %s' % (dataset_path, unzip_path))
 
         # create parent directory for unzipped data
         try:
@@ -77,9 +81,22 @@ class NumerAPI(object):
         except OSError as exception:
             if exception.errno != errno.EEXIST:
                 raise
-
         with zipfile.ZipFile(dataset_path, "r") as z:
             z.extractall(unzip_path)
+
+        import shutil
+        tourn_file = '%s/numerai_dataset/numerai_tournament_data.csv' % unzip_path
+        train_file = '%s/numerai_dataset/numerai_training_data.csv' % unzip_path
+
+        assert os.path.exists(tourn_file)
+        assert os.path.exists(train_file)
+
+        shutil.move(
+            tourn_file,
+            '%s/numerai_tournament_data.csv' % unzip_path)
+        shutil.move(
+            train_file,
+            '%s/numerai_training_data.csv' % unzip_path)
 
     @staticmethod
     def get_download_paths(dest_path: str, dest_filename: str) -> (str, str):
@@ -150,20 +167,7 @@ class NumerAPI(object):
     def get_competitions(self):
         """ get information about rounds """
         self.logger.info("getting rounds...")
-
-        query = '''
-            query {
-              rounds {
-                number
-                resolveTime
-                datasetId
-                openTime
-                resolvedGeneral
-                resolvedStaking
-              }
-            }
-        '''
-        result = self.manager.raw_query(query)
+        result = self.manager.get_competitions()
         return result['data']['rounds']
 
     def get_current_round(self):

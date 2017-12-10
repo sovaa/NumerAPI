@@ -1,5 +1,6 @@
 from zope.interface import implementer
 from uuid import uuid4 as uuid
+from datetime import datetime
 
 import pytest
 import shutil
@@ -18,9 +19,38 @@ SAMPLE_RESULT_FILE = 'sample_result.csv.bz2'
 NAME_TRAIN_CSV = 'numerai_training_data.csv'
 NAME_TOURN_CSV = 'numerai_tournament_data.csv'
 
+DATE_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
+
 
 @implementer(IManager)
 class MagicManager(object):
+    class Round(object):
+        def __init__(self, number: int=1, resolved: bool=True):
+            self.number = number
+            self.resolved_staking = resolved
+            self.resolved_general = resolved
+            self.resolve_time = datetime.utcnow().strftime(DATE_FORMAT)
+            self.open_time = datetime.utcnow().strftime(DATE_FORMAT)
+            self.dataset_id = str(uuid())
+
+        def to_json(self):
+            return {
+                "resolvedStaking": self.resolved_staking,
+                "resolvedGeneral": self.resolved_general,
+                "resolveTime": self.resolve_time,
+                "openTime": self.open_time,
+                "number": self.number,
+                "datasetId": self.dataset_id
+            }
+
+    def __init__(self):
+        self.competitions = list()
+
+    def _create_competition(self, number: int=-1, resolved: bool=True):
+        if number == -1:
+            number = len(self.competitions) + 1
+        self.competitions.append(MagicManager.Round(number, resolved))
+
     def download_data_set(self, dest_path: str, dataset_path: str) -> None:
         try:
             os.makedirs(dest_path)
@@ -63,6 +93,15 @@ class MagicManager(object):
               }
             ]
           }
+        }
+
+    def get_competitions(self) -> dict:
+        return {
+            'data': {
+                'rounds': [
+                    competition.to_json() for competition in self.competitions
+                ]
+            }
         }
 
     def get_submissions(self, submission_id: str) -> dict:
@@ -126,24 +165,45 @@ def test_upload_predictions():
     assert len(submission_id.strip()) > 0
 
 
-"""
 def test_get_competitions():
-    api = NumerAPI()
+    manager = MagicManager()
+    api = NumerAPI(manager=manager)
+    all_competitions = api.get_competitions()
+    assert isinstance(all_competitions, list)
+    assert len(all_competitions) == 0
 
-    # get all competions
-    res = api.get_competitions()
-    assert isinstance(res, list)
-    assert len(res) > 80
+    round_number = 42
+    manager._create_competition(number=round_number)
+
+    all_competitions = api.get_competitions()
+    assert isinstance(all_competitions, list)
+    assert len(all_competitions) == 1
+    assert all_competitions[0]['number'] == round_number
 
 
 def test_download_current_dataset():
-    api = NumerAPI()
-    path = api.download_current_dataset(unzip=True)
-    assert os.path.exists(path)
+    api = NumerAPI(manager=MagicManager())
+    directory = None
+    csv_files = ['numerai_tournament_data.csv', 'numerai_training_data.csv']
 
-    directory = path.replace(".zip", "")
-    filename = "numerai_tournament_data.csv"
-    assert os.path.exists(os.path.join(directory, filename))
+    try:
+        path = api.download_current_dataset(unzip=True)
+        assert os.path.exists(path)
+        directory = path.replace(".zip", "")
+
+        for csv_file in csv_files:
+            final_path_name = os.path.join(directory, csv_file)
+            assert os.path.exists(final_path_name)
+    finally:
+        if directory is not None:
+            for csv_file in csv_files:
+                os.remove(os.path.join(directory, csv_file))
+
+            os.removedirs(os.path.join(directory, 'numerai_dataset'))
+            os.remove('%s.zip' % directory)
+
+
+"""
 
 
 def test_get_current_round():
