@@ -13,7 +13,7 @@ from numerapi.manager import IManager
 class NumerAPI(object):
     """Wrapper around the Numerai API"""
 
-    def __init__(self, public_id=None, secret_key=None, verbosity="INFO", manager=NumerApiManager()):
+    def __init__(self, public_id=None, secret_key=None, verbosity="INFO", manager: IManager=NumerApiManager()):
         """
         initialize Numerai API wrapper for Python
 
@@ -33,7 +33,7 @@ class NumerAPI(object):
             token = None
 
         manager.set_token(token)
-        self.manager: IManager = manager
+        self._manager = manager
         self.logger = logging.getLogger(__name__)
 
         # set up logging
@@ -43,6 +43,14 @@ class NumerAPI(object):
         log_format = "%(asctime)s %(levelname)s %(name)s: %(message)s"
         logging.basicConfig(format=log_format, level=numeric_log_level)
         self.submission_id = None
+
+    @property
+    def manager(self) -> IManager:
+        return self._manager
+
+    @manager.setter
+    def manager(self, manager: IManager):
+        self._manager = manager
 
     def download_current_dataset(self, dest_path=".", dest_filename=None,
                                  unzip=True):
