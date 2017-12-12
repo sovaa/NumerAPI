@@ -80,3 +80,35 @@ class IManager(Interface):
         :param _:
         :return:
         """
+
+    def get_user(self):
+        """
+
+        :return:
+        """
+
+    def get_payments(self):
+        """
+
+        :return:
+        """
+
+    def get_transactions(self):
+        """
+
+        :return:
+        """
+
+    def get_stakes(self):
+        """
+
+        :return:
+        """
+
+    def stake(self, confidence, value):
+        """
+
+        :param confidence:
+        :param value:
+        :return:
+        """

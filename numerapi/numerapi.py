@@ -153,122 +153,28 @@ class NumerAPI(object):
 
     def get_submission_ids(self):
         """get dict with username->submission_id mapping"""
-        data = self.manager.get_submissions()
+        data = self.manager.get_submission_ids()
         data = data['data']['rounds'][0]['leaderboard']
         mapping = {item['username']: item['submissionId'] for item in data}
         return mapping
 
     def get_user(self):
         """get all information about you! """
-        query = """
-          query {
-            user {
-              username
-              banned
-              assignedEthAddress
-              availableNmr
-              availableUsd
-              email
-              id
-              mfaEnabled
-              status
-              insertedAt
-              apiTokens {
-                name
-                public_id
-                scopes
-              }
-            }
-          }
-        """
-        data = self.manager.raw_query(query, authorization=True)['data']['user']
-        return data
+        user = self.manager.get_user()
+        return user['data']['user']
 
     def get_payments(self):
         """all your payments"""
-        query = """
-          query {
-            user {
-              payments {
-                nmrAmount
-                round {
-                  number
-                  openTime
-                  resolveTime
-                  resolvedGeneral
-                  resolvedStaking
-                }
-                tournament
-                usdAmount
-              }
-
-            }
-          }
-        """
-        data = self.manager.raw_query(query, authorization=True)['data']['user']
-        return data['payments']
+        payments = self.manager.get_payments()
+        return payments['data']['user']['payments']
 
     def get_transactions(self):
         """all deposits and withdrawals"""
-        query = """
-          query {
-            user {
-
-              nmrDeposits {
-                from
-                id
-                posted
-                status
-                to
-                txHash
-                value
-              }
-              nmrWithdrawals {
-                from
-                id
-                posted
-                status
-                to
-                txHash
-                value
-              }
-              usdWithdrawals {
-                ethAmount
-                confirmTime
-                from
-                posted
-                sendTime
-                status
-                to
-                txHash
-                usdAmount
-              }
-            }
-          }
-        """
-        data = self.manager.raw_query(query, authorization=True)['data']['user']
-        return data
+        return self.manager.get_transactions()['data']['user']
 
     def get_stakes(self):
         """all your stakes"""
-        query = """
-          query {
-            user {
-              stakeTxs {
-                confidence
-                insertedAt
-                roundNumber
-                soc
-                staker
-                status
-                txHash
-                value
-              }
-            }
-          }
-        """
-        data = self.manager.raw_query(query, authorization=True)['data']['user']
-        return data['stakeTxs']
+        return self.manager.get_stakes()['data']['user']['stakeTxs']
 
     def submission_status(self, submission_id=None):
         """display submission status of the last submission associated with

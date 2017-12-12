@@ -358,6 +358,40 @@ class MagicManager(object):
           }
         }
 
+    def get_user(self):
+        """
+        expects this:
+        query {
+            user {
+              username
+              banned
+              assignedEthAddress
+              availableNmr
+              availableUsd
+              email
+              id
+              mfaEnabled
+              status
+              insertedAt
+              apiTokens {
+                name
+                public_id
+                scopes
+              }
+            }
+          }
+        :return:
+        """
+        # TODO: add more if needed
+        return {
+            "data": {
+                "user": {
+                    "username": self.user_name,
+                    "id": self.user_id
+                }
+            }
+        }
+
     def raw_query(self, query, variables=None, authorization=False):
         raise NotImplementedError('do not call this method for this implementation')
 

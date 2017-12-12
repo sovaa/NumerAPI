@@ -201,6 +201,114 @@ class NumerApiManager(object):
         arguments = {'number': round_num}
         return self.raw_query(query, arguments)
 
+    def get_payments(self):
+        """all your payments"""
+        query = """
+          query {
+            user {
+              payments {
+                nmrAmount
+                round {
+                  number
+                  openTime
+                  resolveTime
+                  resolvedGeneral
+                  resolvedStaking
+                }
+                tournament
+                usdAmount
+              }
+
+            }
+          }
+        """
+        return self.raw_query(query, authorization=True)
+    
+    def get_transactions(self):
+        """all deposits and withdrawals"""
+        query = """
+          query {
+            user {
+
+              nmrDeposits {
+                from
+                id
+                posted
+                status
+                to
+                txHash
+                value
+              }
+              nmrWithdrawals {
+                from
+                id
+                posted
+                status
+                to
+                txHash
+                value
+              }
+              usdWithdrawals {
+                ethAmount
+                confirmTime
+                from
+                posted
+                sendTime
+                status
+                to
+                txHash
+                usdAmount
+              }
+            }
+          }
+        """
+        return self.raw_query(query, authorization=True)
+
+    def get_stakes(self):
+        """all your stakes"""
+        query = """
+          query {
+            user {
+              stakeTxs {
+                confidence
+                insertedAt
+                roundNumber
+                soc
+                staker
+                status
+                txHash
+                value
+              }
+            }
+          }
+        """
+        return self.raw_query(query, authorization=True)
+
+    def get_user(self):
+        """get all information about you! """
+        query = """
+          query {
+            user {
+              username
+              banned
+              assignedEthAddress
+              availableNmr
+              availableUsd
+              email
+              id
+              mfaEnabled
+              status
+              insertedAt
+              apiTokens {
+                name
+                public_id
+                scopes
+              }
+            }
+          }
+        """
+        return self.raw_query(query, authorization=True)
+
     def raw_query(self, query, variables=None, authorization=False):
         """send a raw request to the Numerai's GraphQL API
 
