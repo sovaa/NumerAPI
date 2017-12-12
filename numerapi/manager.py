@@ -53,11 +53,30 @@ class IManager(Interface):
         """
 
     def raw_query(self, query, variables=None, authorization=False):
-        # TODO: should be split into separate methods so we know what to test for
         """
 
         :param query:
         :param variables:
         :param authorization:
+        :return:
+        """
+
+    def get_submissions(self):
+        """
+
+        :return:
+        """
+
+    def get_submission(self, submission_id: str) -> dict:
+        """
+
+        :param submission_id:
+        :return:
+        """
+
+    def upload_predictions(self, file_path: str) -> dict:
+        """
+
+        :param _:
         :return:
         """
