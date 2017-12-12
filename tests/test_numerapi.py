@@ -4,6 +4,7 @@
 from zope.interface import implementer
 from uuid import uuid4 as uuid
 from datetime import datetime
+from typing import Generator
 
 import pytest
 import shutil
@@ -54,11 +55,29 @@ class MagicManager(object):
         def __init__(self, username: str):
             self.username = username
             self.submission_id = str(uuid())
+            self.validation_logloss = 0.0
+            self.total_pay_usd = None
+            self.total_pay_nmr = None
+            self.payment_staking = None
+            self.payment_general = None
+            self.originality_value = False
+            self.originality_pending = True
+            self.live_logloss = None
+            self.consistency = None
+            self.concordance_value = False
+            self.concordance_pending = True
+
+        def set_as_done(self):
+            self.validation_logloss = 0.6931471805599453
+            self.concordance_pending = False
+            self.concordance_value = True
+            self.originality_pending = False
+            self.originality_value = True
+            self.consistency = True
 
     def __init__(self):
         self.competitions = list()
         self.leaderboards = dict()
-        self.submissions = list()
         self.stakes = list()
         self.user_id = None
         self.user_name = None
@@ -73,7 +92,7 @@ class MagicManager(object):
         self.user_id, _ = token
         self.user_name = self.user_id
 
-    def _create_competition(self, number: int=-1, resolved: bool=True):
+    def create_competition(self, number: int=-1, resolved: bool=True):
         if number == -1:
             number = len(self.competitions) + 1
 
@@ -93,9 +112,12 @@ class MagicManager(object):
         if not os.path.exists(dataset_path):
             shutil.copy(SAMPLE_DATA_SET_PATH, dataset_path)
 
-    def get_leaderboard(self, round_id: int) -> dict:
-        # TODO: only include submitted solutions during tests
+    @staticmethod
+    def type_hint_submissions(submissions: list) -> Generator[Submission, None, None]:
+        for submission in submissions:
+            yield submission
 
+    def get_leaderboard(self, round_id: int) -> dict:
         if round_id not in self.leaderboards:
             raise ValueError('no such round "%s"' % str(round_id))
 
@@ -105,26 +127,26 @@ class MagicManager(object):
               {
                 "leaderboard": [
                   {
-                    "validationLogloss": 0.6818856968749493,
-                    "username": "usigma03",
+                    "validationLogloss": submission.validation_logloss,
+                    "username": submission.username,
                     "totalPayments": {
-                      "usdAmount": "0.00",
-                      "nmrAmount": "18.85"
+                      "usdAmount": submission.total_pay_usd,
+                      "nmrAmount": submission.total_pay_nmr
                     },
-                    "submissionId": "3983e678-05df-4dc6-b494-0a04f6d1c1fb",
-                    "paymentStaking": None,
-                    "paymentGeneral": None,
+                    "submissionId": submission.submission_id,
+                    "paymentStaking": submission.payment_staking,
+                    "paymentGeneral": submission.payment_general,
                     "originality": {
-                      "value": True,
-                      "pending": False
+                      "value": submission.originality_value,
+                      "pending": submission.originality_pending
                     },
-                    "liveLogloss": None,
-                    "consistency": 100,
+                    "liveLogloss": submission.live_logloss,
+                    "consistency": submission.consistency,
                     "concordance": {
-                      "value": True,
-                      "pending": False
+                      "value": submission.concordance_value,
+                      "pending": submission.concordance_pending
                     }
-                  } for submission in self.leaderboards[round_id].submissions
+                  } for submission in MagicManager.type_hint_submissions(self.leaderboards[round_id].submissions)
                 ]
               }
             ]
@@ -173,18 +195,22 @@ class MagicManager(object):
           }
         }
         """
+        current_round_id = self.get_current_round()['data']['rounds'][0]['number']
 
         return {
-            "data": {
-                "rounds": [
-                    {
-                        "leaderboard": [{
-                            "username": submission.username,
-                            "submissionId": submission.submission_id
-                        } for submission in self.submissions]
-                    }
+          "data": {
+            "rounds": [
+              {
+                "leaderboard": [
+                  {
+                    "username": submission.username,
+                    "submissionId": submission.submission_id
+                  } for submission in MagicManager.type_hint_submissions(
+                        self.leaderboards[current_round_id].submissions)
                 ]
-            }
+              }
+            ]
+          }
         }
 
     def get_current_round(self) -> dict:
@@ -207,35 +233,43 @@ class MagicManager(object):
         }
 
     def get_submission(self, submission_id: str) -> dict:
-        # TODO: return true status from executor
+        current_round_id = self.get_current_round()['data']['rounds'][0]['number']
+
+        submission: MagicManager.Submission = None
+        for sub in self.leaderboards[current_round_id].submissions:
+            if submission.submission_id == submission_id:
+                submission = sub
+
+        if submission is None:
+            raise ValueError('no such submission "%s"' % str(submission_id))
+
         return {
             'data': {
                 'submissions': [
                     {
                         'originality': {
-                            'pending': True,
-                            'value': None
+                            'pending': submission.originality_pending,
+                            'value': submission.originality_value
                         },
                         'concordance': {
-                            'pending': True,
-                            'value': None
+                            'pending': submission.concordance_pending,
+                            'value': submission.concordance_value
                         },
-                        'consistency': True,
-                        'validation_logloss': 0.693
+                        'consistency': submission.consistency,
+                        'validation_logloss': submission.validation_logloss
                     }
                 ]
             }
         }
 
-    def upload_predictions(self, file_path: str) -> dict:
-        # TODO: score and add to leaderboard
+    def upload_predictions(self, _: str) -> dict:
         current_round = self.get_current_round()
         round_id = current_round['data']['rounds'][0]["number"]
         if round_id == -1:
             raise RuntimeError('before testing upload, create at least one competition first')
 
         submission = MagicManager.Submission(username=self.user_id)
-        self.submissions.append(submission)
+        self.leaderboards[round_id].submissions.append(submission)
 
         return {
             'data': {
@@ -331,7 +365,7 @@ class MagicManager(object):
 @pytest.fixture(name='api', scope='function')
 def fixture_for_api():
     magic_manager = MagicManager()
-    magic_manager._create_competition(1, resolved=False)
+    magic_manager.create_competition(0, resolved=False)
     return NumerAPI(public_id='foo', secret_key='bar', manager=magic_manager)
 
 
@@ -349,16 +383,24 @@ def test_magic_manager_download(api: NumerAPI):
 def test_get_leaderboard_returns_empty_list():
     # don't use fixture here, create our own competition
     api = NumerAPI(manager=MagicManager())
-    api.manager._create_competition(number=67)
+    api.manager.create_competition(number=67)
     lb = api.get_leaderboard(67)
     assert isinstance(lb, list)
-    assert len(lb) == 0  # TODO: check our submission is here instead
+    assert len(lb) == 0
 
 
-def test_upload_predictions(api: NumerAPI):
-    # TODO: verify status of our upload is pending
+def test_upload_predictions_returns_id(api: NumerAPI):
     submission_id = api.upload_predictions('some/path.csv')
+    assert isinstance(submission_id, str)
     assert len(submission_id.strip()) > 0
+
+
+def test_get_submission_after_upload(api: NumerAPI):
+    submission_id = api.upload_predictions('some/path.csv')
+    lb = api.get_leaderboard()
+    assert isinstance(lb, list)
+    assert len(lb) == 1
+    assert lb[0]['submissionId'] == submission_id
 
 
 def test_get_competitions():
@@ -369,7 +411,7 @@ def test_get_competitions():
     assert len(all_competitions) == 0
 
     round_number = 42
-    api.manager._create_competition(number=round_number)
+    api.manager.create_competition(number=round_number)
 
     all_competitions = api.get_competitions()
     assert isinstance(all_competitions, list)
@@ -401,11 +443,11 @@ def test_download_current_dataset(api: NumerAPI):
 def test_get_current_round():
     # don't use fixture here, create our own rounds
     api = NumerAPI(public_id='foo', secret_key='bar', manager=MagicManager())
-    api.manager._create_competition(number=1)
+    api.manager.create_competition(number=1)
     current_round = api.get_current_round()
     assert current_round == 1
 
-    api.manager._create_competition(number=2)
+    api.manager.create_competition(number=2)
     current_round = api.get_current_round()
     assert current_round == 2
 
