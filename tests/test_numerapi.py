@@ -27,7 +27,7 @@ DATE_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 
 
 @implementer(IManager)
-class MagicManager(object):
+class NumerMockManager(object):
     class Round(object):
         def __init__(self, number: int=1, resolved: bool=True):
             self.number = number
@@ -99,8 +99,8 @@ class MagicManager(object):
         if number in self.leaderboards.keys():
             raise RuntimeError('round "%s" already exists' % str(number))
 
-        self.leaderboards[number] = MagicManager.Leaderboard()
-        self.competitions.append(MagicManager.Round(number, resolved))
+        self.leaderboards[number] = NumerMockManager.Leaderboard()
+        self.competitions.append(NumerMockManager.Round(number, resolved))
 
     def download_data_set(self, dest_path: str, dataset_path: str) -> None:
         try:
@@ -146,7 +146,7 @@ class MagicManager(object):
                       "value": submission.concordance_value,
                       "pending": submission.concordance_pending
                     }
-                  } for submission in MagicManager.type_hint_submissions(self.leaderboards[round_id].submissions)
+                  } for submission in NumerMockManager.type_hint_submissions(self.leaderboards[round_id].submissions)
                 ]
               }
             ]
@@ -162,7 +162,7 @@ class MagicManager(object):
             }
         }
 
-    def get_submissions(self):
+    def get_submission_ids(self):
         """
         NumerAPI expects the manager to query for this:
 
@@ -205,7 +205,7 @@ class MagicManager(object):
                   {
                     "username": submission.username,
                     "submissionId": submission.submission_id
-                  } for submission in MagicManager.type_hint_submissions(
+                  } for submission in NumerMockManager.type_hint_submissions(
                         self.leaderboards[current_round_id].submissions)
                 ]
               }
@@ -235,7 +235,7 @@ class MagicManager(object):
     def get_submission(self, submission_id: str) -> dict:
         current_round_id = self.get_current_round()['data']['rounds'][0]['number']
 
-        submission: MagicManager.Submission = None
+        submission: NumerMockManager.Submission = None
         for sub in self.leaderboards[current_round_id].submissions:
             if submission.submission_id == submission_id:
                 submission = sub
@@ -268,7 +268,7 @@ class MagicManager(object):
         if round_id == -1:
             raise RuntimeError('before testing upload, create at least one competition first')
 
-        submission = MagicManager.Submission(username=self.user_id)
+        submission = NumerMockManager.Submission(username=self.user_id)
         self.leaderboards[round_id].submissions.append(submission)
 
         return {
@@ -398,12 +398,12 @@ class MagicManager(object):
 
 @pytest.fixture(name='api', scope='function')
 def fixture_for_api():
-    magic_manager = MagicManager()
-    magic_manager.create_competition(0, resolved=False)
-    return NumerAPI(public_id='foo', secret_key='bar', manager=magic_manager)
+    mock_manager = NumerMockManager()
+    mock_manager.create_competition(0, resolved=False)
+    return NumerAPI(public_id='foo', secret_key='bar', manager=mock_manager)
 
 
-def test_magic_manager_download(api: NumerAPI):
+def test_mock_manager_download(api: NumerAPI):
     import tempfile
 
     with tempfile.TemporaryDirectory() as dest_path:
@@ -416,7 +416,7 @@ def test_magic_manager_download(api: NumerAPI):
 
 def test_get_leaderboard_returns_empty_list():
     # don't use fixture here, create our own competition
-    api = NumerAPI(manager=MagicManager())
+    api = NumerAPI(manager=NumerMockManager())
     api.manager.create_competition(number=67)
     lb = api.get_leaderboard(67)
     assert isinstance(lb, list)
@@ -439,7 +439,7 @@ def test_get_submission_after_upload(api: NumerAPI):
 
 def test_get_competitions():
     # don't use fixtures here, create our own competitions
-    api = NumerAPI(manager=MagicManager())
+    api = NumerAPI(manager=NumerMockManager())
     all_competitions = api.get_competitions()
     assert isinstance(all_competitions, list)
     assert len(all_competitions) == 0
@@ -476,7 +476,7 @@ def test_download_current_dataset(api: NumerAPI):
 
 def test_get_current_round():
     # don't use fixture here, create our own rounds
-    api = NumerAPI(public_id='foo', secret_key='bar', manager=MagicManager())
+    api = NumerAPI(public_id='foo', secret_key='bar', manager=NumerMockManager())
     api.manager.create_competition(number=1)
     current_round = api.get_current_round()
     assert current_round == 1
