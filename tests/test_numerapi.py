@@ -499,28 +499,9 @@ def test_upload_submission_returns_submission_id(api: NumerAPI):
     assert submission_id
 
 
-<<<<<<< HEAD
 def test_get_submission_ids_empty_before_upload(api: NumerAPI):
     ids = api.get_submission_ids()
     assert not ids
-=======
-
-def test_stake():
-    api = NumerAPI()
-    with pytest.raises(ValueError) as err:
-        # while this won't work because we are not authorized, it still tells
-        # us if the request is formatted correctly
-        api.stake(3, 2)
-    # error should warn about not beeing logged in.
-    assert "You must be authenticated" in str(err.value)
-
-
-def test_get_staking_leaderboard():
-    api = NumerAPI()
-    stakes = api.get_staking_leaderboard(82)
-    # 115 people staked that round
-    assert len(stakes) == 115
->>>>>>> master
 
 
 def test_get_submission_ids_contains_uploaded_submission(api: NumerAPI):

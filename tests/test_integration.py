@@ -31,6 +31,16 @@ def test_raw_query(api: NumerAPI):
     assert "data" in result
 
 
+def test_stake():
+    api = NumerAPI()
+    with pytest.raises(ValueError) as err:
+        # while this won't work because we are not authorized, it still tells
+        # us if the request is formatted correctly
+        api.stake(3, 2)
+    # error should warn about not beeing logged in.
+    assert "You must be authenticated" in str(err.value)
+
+
 def test_get_leaderboard(api: NumerAPI):
     lb = api.get_leaderboard(67)
     assert len(lb) == 1425

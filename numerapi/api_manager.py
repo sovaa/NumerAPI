@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Union
 
 import requests
 from zope.interface import implementer
@@ -16,14 +17,18 @@ class NumerApiManager(object):
         self.token = None
         self.logger = logging.getLogger(__name__)
 
-    def _handle_call_error(self, errors):
+    def _handle_call_error(self, errors) -> Union[None, str]:
+        msg = None
         if isinstance(errors, list):
             for error in errors:
                 if "message" in error:
-                    self.logger.error(error['message'])
+                    msg = error['message']
+                    self.logger.error(msg)
         elif isinstance(errors, dict):
             if "detail" in errors:
-                self.logger.error(errors['detail'])
+                msg = errors['detail']
+                self.logger.error(msg)
+        return msg
 
     def set_token(self, token: tuple):
         self.token = token
@@ -320,8 +325,7 @@ class NumerApiManager(object):
         r = requests.post(self.api_url, json=body, headers=headers)
         result = r.json()
         if "errors" in result:
-            self._handle_call_error(result['errors'])
-            # fail!
-            raise ValueError
+            error_msg = self._handle_call_error(result['errors'])
+            raise ValueError(error_msg or 'unknown error')
 
         return result
