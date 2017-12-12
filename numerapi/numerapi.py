@@ -114,6 +114,7 @@ class NumerAPI(object):
             train_file,
             '%s/numerai_training_data.csv' % unzip_path)
 
+<<<<<<< HEAD
     @staticmethod
     def get_download_paths(dest_path: str, dest_filename: str) -> (str, str):
         # set up download path
@@ -125,6 +126,41 @@ class NumerAPI(object):
             if not dest_filename.endswith(".zip"):
                 dest_filename += ".zip"
         dataset_path = os.path.join(dest_path, dest_filename)
+=======
+    def _handle_call_error(self, errors):
+        if isinstance(errors, list):
+            for error in errors:
+                if "message" in error:
+                    msg = error['message']
+                    self.logger.error(msg)
+        elif isinstance(errors, dict):
+            if "detail" in errors:
+                msg = errors['detail']
+                self.logger.error(msg)
+        return msg
+
+    def raw_query(self, query, variables=None, authorization=False):
+        """send a raw request to the Numerai's GraphQL API
+
+        query (str): the query
+        variables (dict): dict of variables
+        authorization (bool): does the request require authorization
+        """
+        body = {'query': query,
+                'variables': variables}
+        headers = {'Content-type': 'application/json',
+                   'Accept': 'application/json'}
+        if authorization and self.token:
+            public_id, secret_key = self.token
+            headers['Authorization'] = \
+                'Token {}${}'.format(public_id, secret_key)
+        r = requests.post(API_TOURNAMENT_URL, json=body, headers=headers)
+        result = r.json()
+        if "errors" in result:
+            err = self._handle_call_error(result['errors'])
+            # fail!
+            raise ValueError(err)
+>>>>>>> master
 
         return dest_filename, dataset_path
 
@@ -249,5 +285,10 @@ class NumerAPI(object):
                      'password': "somepassword",
                      'round': self.get_current_round(),
                      'value': str(value)}
+<<<<<<< HEAD
         result = self.manager.raw_query(query, arguments, authorization=True)
         return result
+=======
+        result = self.raw_query(query, arguments, authorization=True)
+        return result['data']
+>>>>>>> master
