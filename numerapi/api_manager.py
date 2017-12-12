@@ -1,9 +1,9 @@
-import requests
-import errno
-import os
 import logging
+import os
 
+import requests
 from zope.interface import implementer
+
 from numerapi.manager import IManager
 
 API_TOURNAMENT_URL = 'https://api-tournament.numer.ai'
@@ -11,7 +11,7 @@ API_TOURNAMENT_URL = 'https://api-tournament.numer.ai'
 
 @implementer(IManager)
 class NumerApiManager(object):
-    def __init__(self, api_url: str=API_TOURNAMENT_URL):
+    def __init__(self, api_url: str = API_TOURNAMENT_URL):
         self.api_url = api_url
         self.token = None
         self.logger = logging.getLogger(__name__)
@@ -28,19 +28,12 @@ class NumerApiManager(object):
     def set_token(self, token: tuple):
         self.token = token
 
-    def download_data_set(self, dest_path: str, dataset_path: str) -> None:
+    def download_data_set(self, dataset_path: str) -> None:
         url = self.get_link_to_current_dataset()
 
         # download
         dataset_res = requests.get(url, stream=True)
         dataset_res.raise_for_status()
-
-        # create parent folder if necessary
-        try:
-            os.makedirs(dest_path)
-        except OSError as exception:
-            if exception.errno != errno.EEXIST:
-                raise
 
         # write dataset to file
         with open(dataset_path, "wb") as f:
@@ -223,7 +216,7 @@ class NumerApiManager(object):
           }
         """
         return self.raw_query(query, authorization=True)
-    
+
     def get_transactions(self):
         """all deposits and withdrawals"""
         query = """

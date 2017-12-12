@@ -17,10 +17,9 @@ class IManager(Interface):
         :return:
         """
 
-    def download_data_set(self, dest_path: str, dataset_path: str) -> None:
+    def download_data_set(self, dataset_path: str) -> None:
         """
 
-        :param dest_path:
         :param dataset_path:
         :return:
         """

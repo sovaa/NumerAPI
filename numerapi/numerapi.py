@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import datetime
+import errno
 import logging
 import os
-import errno
 import zipfile
 
 from numerapi.api_manager import NumerApiManager
@@ -13,7 +13,7 @@ from numerapi.manager import IManager
 class NumerAPI(object):
     """Wrapper around the Numerai API"""
 
-    def __init__(self, public_id=None, secret_key=None, verbosity="INFO", manager: IManager=NumerApiManager()):
+    def __init__(self, public_id=None, secret_key=None, verbosity="INFO", manager: IManager = NumerApiManager()):
         """
         initialize Numerai API wrapper for Python
 
@@ -64,14 +64,20 @@ class NumerAPI(object):
         dest_filename, dataset_path = NumerAPI.get_download_paths(dest_path, dest_filename)
 
         if os.path.exists(dataset_path):
-            self.logger.info("target file %s already exists" % dataset_path)
+            self.logger.info("target file {} already exists".format(dataset_path))
         else:
-            self.manager.download_data_set(dest_path, dataset_path)
+            # create parent folder if necessary
+            try:
+                os.makedirs(dest_path)
+            except OSError as exception:
+                if exception.errno != errno.EEXIST:
+                    raise
+            self.manager.download_data_set(dataset_path)
 
         if unzip:
             unzip_dir_path = os.path.join(dest_path, dest_filename[:-4])
             if os.path.exists(unzip_dir_path):
-                self.logger.info('destination unzip path already exists: %s' % dest_filename)
+                self.logger.info('destination unzip path already exists: {}'.format(dest_filename))
             else:
                 self.unzip_data_set(dest_path, dataset_path, dest_filename)
 
@@ -83,7 +89,7 @@ class NumerAPI(object):
 
         # construct full path (including file name) for unzipping
         unzip_path = os.path.join(dest_path, dataset_name)
-        self.logger.info('unzipping %s to %s' % (dataset_path, unzip_path))
+        self.logger.info('unzipping {} to {}'.format(dataset_path, unzip_path))
 
         # create parent directory for unzipped data
         try:
@@ -122,7 +128,7 @@ class NumerAPI(object):
 
         return dest_filename, dataset_path
 
-    def get_leaderboard(self, round_num: int=0):
+    def get_leaderboard(self, round_num: int = 0):
         """ retrieves the leaderboard for the given round
 
         round_num: The round you are interested in, defaults to current round.

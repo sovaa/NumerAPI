@@ -1,15 +1,14 @@
 # method names of pytest fixtures has (for some reason) no prefix, resulting in "shadows name from outer scope"
 # pylint: disable=redefined-outer-name
 
-from zope.interface import implementer
-from uuid import uuid4 as uuid
+import os
+import shutil
 from datetime import datetime
 from typing import Generator
+from uuid import uuid4 as uuid
 
 import pytest
-import shutil
-import errno
-import os
+from zope.interface import implementer
 
 from numerapi import NumerAPI
 from numerapi.manager import IManager
@@ -29,7 +28,7 @@ DATE_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 @implementer(IManager)
 class NumerMockManager(object):
     class Round(object):
-        def __init__(self, number: int=1, resolved: bool=True):
+        def __init__(self, number: int = 1, resolved: bool = True):
             self.number = number
             self.resolved_staking = resolved
             self.resolved_general = resolved
@@ -47,10 +46,20 @@ class NumerMockManager(object):
                 "datasetId": self.dataset_id
             }
 
+        def get_number(self):
+            return self.number
+
     class Leaderboard(object):
         def __init__(self):
             self.submissions = list()
 
+        def add_submission(self, submission):
+            self.submissions.append(submission)
+
+        def get_submissions(self):
+            return self.submissions
+
+    # pylint: disable=too-many-instance-attributes
     class Submission(object):
         def __init__(self, username: str):
             self.username = username
@@ -75,6 +84,9 @@ class NumerMockManager(object):
             self.originality_value = True
             self.consistency = True
 
+        def get_submission_id(self):
+            return self.submission_id
+
     def __init__(self):
         self.competitions = list()
         self.leaderboards = dict()
@@ -92,7 +104,7 @@ class NumerMockManager(object):
         self.user_id, _ = token
         self.user_name = self.user_id
 
-    def create_competition(self, number: int=-1, resolved: bool=True):
+    def create_competition(self, number: int = -1, resolved: bool = True):
         if number == -1:
             number = len(self.competitions) + 1
 
@@ -102,55 +114,46 @@ class NumerMockManager(object):
         self.leaderboards[number] = NumerMockManager.Leaderboard()
         self.competitions.append(NumerMockManager.Round(number, resolved))
 
-    def download_data_set(self, dest_path: str, dataset_path: str) -> None:
-        try:
-            os.makedirs(dest_path)
-        except OSError as exception:
-            if exception.errno != errno.EEXIST:
-                raise
-
+    # pylint: disable=no-self-use
+    def download_data_set(self, dataset_path: str) -> None:
         if not os.path.exists(dataset_path):
             shutil.copy(SAMPLE_DATA_SET_PATH, dataset_path)
-
-    @staticmethod
-    def type_hint_submissions(submissions: list) -> Generator[Submission, None, None]:
-        for submission in submissions:
-            yield submission
 
     def get_leaderboard(self, round_id: int) -> dict:
         if round_id not in self.leaderboards:
             raise ValueError('no such round "%s"' % str(round_id))
 
         return {
-          "data": {
-            "rounds": [
-              {
-                "leaderboard": [
-                  {
-                    "validationLogloss": submission.validation_logloss,
-                    "username": submission.username,
-                    "totalPayments": {
-                      "usdAmount": submission.total_pay_usd,
-                      "nmrAmount": submission.total_pay_nmr
-                    },
-                    "submissionId": submission.submission_id,
-                    "paymentStaking": submission.payment_staking,
-                    "paymentGeneral": submission.payment_general,
-                    "originality": {
-                      "value": submission.originality_value,
-                      "pending": submission.originality_pending
-                    },
-                    "liveLogloss": submission.live_logloss,
-                    "consistency": submission.consistency,
-                    "concordance": {
-                      "value": submission.concordance_value,
-                      "pending": submission.concordance_pending
+            "data": {
+                "rounds": [
+                    {
+                        "leaderboard": [
+                            {
+                                "validationLogloss": submission.validation_logloss,
+                                "username": submission.username,
+                                "totalPayments": {
+                                    "usdAmount": submission.total_pay_usd,
+                                    "nmrAmount": submission.total_pay_nmr
+                                },
+                                "submissionId": submission.submission_id,
+                                "paymentStaking": submission.payment_staking,
+                                "paymentGeneral": submission.payment_general,
+                                "originality": {
+                                    "value": submission.originality_value,
+                                    "pending": submission.originality_pending
+                                },
+                                "liveLogloss": submission.live_logloss,
+                                "consistency": submission.consistency,
+                                "concordance": {
+                                    "value": submission.concordance_value,
+                                    "pending": submission.concordance_pending
+                                }
+                            } for submission in type_hint_submissions(
+                                self.leaderboards[round_id].submissions)
+                        ]
                     }
-                  } for submission in NumerMockManager.type_hint_submissions(self.leaderboards[round_id].submissions)
                 ]
-              }
-            ]
-          }
+            }
         }
 
     def get_competitions(self) -> dict:
@@ -198,25 +201,25 @@ class NumerMockManager(object):
         current_round_id = self.get_current_round()['data']['rounds'][0]['number']
 
         return {
-          "data": {
-            "rounds": [
-              {
-                "leaderboard": [
-                  {
-                    "username": submission.username,
-                    "submissionId": submission.submission_id
-                  } for submission in NumerMockManager.type_hint_submissions(
-                        self.leaderboards[current_round_id].submissions)
+            "data": {
+                "rounds": [
+                    {
+                        "leaderboard": [
+                            {
+                                "username": submission.username,
+                                "submissionId": submission.submission_id
+                            } for submission in type_hint_submissions(
+                                self.leaderboards[current_round_id].submissions)
+                        ]
+                    }
                 ]
-              }
-            ]
-          }
+            }
         }
 
     def get_current_round(self) -> dict:
         rounds = self.competitions.copy()
 
-        if len(rounds) > 0:
+        if rounds:
             rounds.sort(key=lambda r: r.number, reverse=True)
             number = rounds[0].number
         else:
@@ -233,15 +236,14 @@ class NumerMockManager(object):
         }
 
     def get_submission(self, submission_id: str) -> dict:
-        current_round_id = self.get_current_round()['data']['rounds'][0]['number']
-
-        submission: NumerMockManager.Submission = None
-        for sub in self.leaderboards[current_round_id].submissions:
-            if submission.submission_id == submission_id:
-                submission = sub
-
-        if submission is None:
+        def find_submission() -> NumerMockManager.Submission:
+            for _sub in self.leaderboards[current_round_id].submissions:
+                if _sub.submission_id == submission_id:
+                    return _sub
             raise ValueError('no such submission "%s"' % str(submission_id))
+
+        current_round_id = self.get_current_round()['data']['rounds'][0]['number']
+        submission = find_submission()
 
         return {
             'data': {
@@ -325,37 +327,37 @@ class NumerMockManager(object):
         """
         if round_num not in self.stakes:
             return {
-              "data": {
-                "rounds": [
-                  {
-                    "leaderboard": []
-                  }
-                ]
-              }
+                "data": {
+                    "rounds": [
+                        {
+                            "leaderboard": []
+                        }
+                    ]
+                }
             }
 
         return {
-          "data": {
-            "rounds": [
-              {
-                "leaderboard": [
-                  {
-                    "validationLogloss": stake.validation_logloss,
-                    "username": stake.user_name,
-                    "stake": {
-                      "value": stake.value,
-                      "txHash": stake.tx_hash,
-                      "soc": stake.soc,
-                      "insertedAt": stake.inserted_at,
-                      "confidence": stake.confidence
-                    },
-                    "liveLogloss": stake.live_logloss,
-                    "consistency": stake.consistency
-                  } for stake in self.stakes[round_num]
+            "data": {
+                "rounds": [
+                    {
+                        "leaderboard": [
+                            {
+                                "validationLogloss": stake.validation_logloss,
+                                "username": stake.user_name,
+                                "stake": {
+                                    "value": stake.value,
+                                    "txHash": stake.tx_hash,
+                                    "soc": stake.soc,
+                                    "insertedAt": stake.inserted_at,
+                                    "confidence": stake.confidence
+                                },
+                                "liveLogloss": stake.live_logloss,
+                                "consistency": stake.consistency
+                            } for stake in self.stakes[round_num]
+                        ]
+                    }
                 ]
-              }
-            ]
-          }
+            }
         }
 
     def get_user(self):
@@ -396,6 +398,11 @@ class NumerMockManager(object):
         raise NotImplementedError('do not call this method for this implementation')
 
 
+def type_hint_submissions(submissions: list) -> Generator[NumerMockManager.Submission, None, None]:
+    for submission in submissions:
+        yield submission
+
+
 @pytest.fixture(name='api', scope='function')
 def fixture_for_api():
     mock_manager = NumerMockManager()
@@ -410,7 +417,7 @@ def test_mock_manager_download(api: NumerAPI):
         data_set_path = os.path.join(dest_path, 'thedata.zip')
         assert not os.path.exists(data_set_path)
 
-        api.manager.download_data_set(dest_path, data_set_path)
+        api.manager.download_data_set(data_set_path)
         assert os.path.exists(data_set_path)
 
 
@@ -420,13 +427,13 @@ def test_get_leaderboard_returns_empty_list():
     api.manager.create_competition(number=67)
     lb = api.get_leaderboard(67)
     assert isinstance(lb, list)
-    assert len(lb) == 0
+    assert not lb
 
 
 def test_upload_predictions_returns_id(api: NumerAPI):
     submission_id = api.upload_predictions('some/path.csv')
     assert isinstance(submission_id, str)
-    assert len(submission_id.strip()) > 0
+    assert submission_id.strip()
 
 
 def test_get_submission_after_upload(api: NumerAPI):
@@ -442,7 +449,7 @@ def test_get_competitions():
     api = NumerAPI(manager=NumerMockManager())
     all_competitions = api.get_competitions()
     assert isinstance(all_competitions, list)
-    assert len(all_competitions) == 0
+    assert not all_competitions
 
     round_number = 42
     api.manager.create_competition(number=round_number)
@@ -489,12 +496,12 @@ def test_get_current_round():
 def test_upload_submission_returns_submission_id(api: NumerAPI):
     submission_id = api.upload_predictions('foo')
     assert isinstance(submission_id, str)
-    assert len(submission_id) > 0
+    assert submission_id
 
 
 def test_get_submission_ids_empty_before_upload(api: NumerAPI):
     ids = api.get_submission_ids()
-    assert len(ids) == 0
+    assert not ids
 
 
 def test_get_submission_ids_contains_uploaded_submission(api: NumerAPI):
@@ -508,7 +515,7 @@ def test_get_submission_ids_contains_uploaded_submission(api: NumerAPI):
 
 def test_get_staking_leaderboard_no_submissions(api: NumerAPI):
     stakes = api.get_staking_leaderboard(82)
-    assert len(stakes) == 0
+    assert not stakes
 
 
 def test_error_handling_get_leaderboard_str_id(api: NumerAPI):
@@ -521,26 +528,3 @@ def test_error_handling_get_leaderboard_unknown_round_id(api: NumerAPI):
     # round that doesn't exist
     with pytest.raises(ValueError):
         api.get_leaderboard(-1)
-
-
-"""
-
-def test_error_handling_submission_status_no_auth(api: NumerAPI):
-    # unauthenticated request
-    with pytest.raises(ValueError):
-        # set wrong token
-        api.token = ("foo", "bar")
-        api.submission_id = 1
-        api.submission_status()
-
-def test_raw_query():
-    api = NumerAPI()
-    query = "query {dataset}"
-    result = api.raw_query(query)
-    assert isinstance(result, dict)
-    assert "data" in result
-
-
-
-
-"""

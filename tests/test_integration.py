@@ -1,5 +1,6 @@
-import pytest
 import os
+
+import pytest
 
 from numerapi.numerapi import NumerAPI
 
@@ -12,22 +13,10 @@ def fixture_for_api():
 
 
 def test_get_competitions(api: NumerAPI):
-    # get all competions
+    # get all competitions
     res = api.get_competitions()
     assert isinstance(res, list)
     assert len(res) > 80
-
-
-"""
-# don't test downloading in integration test, it's ~150MB; api logic for download is tested with MockManager
-def test_download_current_dataset(api: NumerAPI):
-    path = api.download_current_dataset(unzip=True)
-    assert os.path.exists(path)
-
-    directory = path.replace(".zip", "")
-    filename = "numerai_tournament_data.csv"
-    assert os.path.exists(os.path.join(directory, filename))
-"""
 
 
 def test_get_current_round(api: NumerAPI):
@@ -55,7 +44,7 @@ def test_get_staking_leaderboard(api: NumerAPI):
 
 def test_get_submission_ids(api: NumerAPI):
     ids = api.get_submission_ids()
-    assert len(ids) > 0
+    assert ids
     assert isinstance(ids, dict)
 
 
