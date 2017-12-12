@@ -114,15 +114,6 @@ class NumerAPI(object):
 
         return dest_filename, dataset_path
 
-    def _handle_call_error(self, errors):
-        if isinstance(errors, list):
-            for error in errors:
-                if "message" in error:
-                    self.logger.error(error['message'])
-        elif isinstance(errors, dict):
-            if "detail" in errors:
-                self.logger.error(errors['detail'])
-
     def get_leaderboard(self, round_num: int=0):
         """ retrieves the leaderboard for the given round
 

@@ -1,9 +1,9 @@
 import requests
 import errno
 import os
+import logging
 
 from zope.interface import implementer
-
 from numerapi.manager import IManager
 
 API_TOURNAMENT_URL = 'https://api-tournament.numer.ai'
@@ -14,6 +14,16 @@ class NumerApiManager(object):
     def __init__(self, api_url: str=API_TOURNAMENT_URL):
         self.api_url = api_url
         self.token = None
+        self.logger = logging.getLogger(__name__)
+
+    def _handle_call_error(self, errors):
+        if isinstance(errors, list):
+            for error in errors:
+                if "message" in error:
+                    self.logger.error(error['message'])
+        elif isinstance(errors, dict):
+            if "detail" in errors:
+                self.logger.error(errors['detail'])
 
     def set_token(self, token: tuple):
         self.token = token
@@ -47,7 +57,7 @@ class NumerApiManager(object):
               }
             }
         '''
-        return self.manager.raw_query(query)
+        return self.raw_query(query)
 
     def get_submission_ids(self):
         query = """
@@ -60,7 +70,7 @@ class NumerApiManager(object):
             }
         }
         """
-        return self.manager.raw_query(query)
+        return self.raw_query(query)
 
     def get_competitions(self) -> dict:
         query = '''
@@ -95,7 +105,7 @@ class NumerApiManager(object):
             }
             '''
         variable = {'submission_id': submission_id}
-        return self.manager.raw_query(query, variable, authorization=True)
+        return self.raw_query(query, variable, authorization=True)
 
     def get_staking_leaderboard(self, round_num: int):
         query = '''

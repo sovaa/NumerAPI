@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-numerapi_version = '0.2.0'
+numerapi_version = '0.3.0'
 
 setup(
     name="numerapi",
