@@ -7,6 +7,7 @@ import errno
 import zipfile
 
 from numerapi.api_manager import NumerApiManager
+from numerapi.manager import IManager
 
 
 class NumerAPI(object):
@@ -24,14 +25,15 @@ class NumerAPI(object):
             valid values: "debug", "info", "warning", "error", "critical"
         """
         if public_id and secret_key:
-            self.token = (public_id, secret_key)
+            token = (public_id, secret_key)
         elif not public_id and not secret_key:
-            self.token = None
+            token = None
         else:
             print("You need to supply both a public id and a secret key.")
-            self.token = None
+            token = None
 
-        self.manager = manager
+        manager.set_token(token)
+        self.manager: IManager = manager
         self.logger = logging.getLogger(__name__)
 
         # set up logging
@@ -121,11 +123,14 @@ class NumerAPI(object):
             if "detail" in errors:
                 self.logger.error(errors['detail'])
 
-    def get_leaderboard(self, round_num=0):
+    def get_leaderboard(self, round_num: int=0):
         """ retrieves the leaderboard for the given round
 
         round_num: The round you are interested in, defaults to current round.
         """
+        if not isinstance(round_num, int):
+            raise ValueError('type of round_num argument should be int but was "%s"' % str(type(round_num)))
+
         self.logger.info("getting leaderboard for round {}".format(round_num))
         result = self.manager.get_leaderboard(round_num)
         return result['data']['rounds'][0]['leaderboard']
@@ -137,29 +142,9 @@ class NumerAPI(object):
         round_num: The round you are interested in, defaults to current round.
         """
         self.logger.info("getting stakes for round {}".format(round_num))
-        query = '''
-            query($number: Int!) {
-              rounds(number: $number) {
-                leaderboard {
-                  consistency
-                  liveLogloss
-                  username
-                  validationLogloss
-                  stake {
-                    insertedAt
-                    soc
-                    confidence
-                    value
-                    txHash
-                  }
-
-                }
-              }
-            }
-        '''
-        arguments = {'number': round_num}
-        result = self.manager.raw_query(query, arguments)
+        result = self.manager.get_staking_leaderboard(round_num)
         stakes = result['data']['rounds'][0]['leaderboard']
+
         # filter those with actual stakes
         stakes = [item for item in stakes if item["stake"]["soc"] is not None]
         return stakes
@@ -177,7 +162,7 @@ class NumerAPI(object):
 
     def get_submission_ids(self):
         """get dict with username->submission_id mapping"""
-        data = self.manager.get_submission_ids()
+        data = self.manager.get_submissions()
         data = data['data']['rounds'][0]['leaderboard']
         mapping = {item['username']: item['submissionId'] for item in data}
         return mapping

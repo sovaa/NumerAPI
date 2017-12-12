@@ -13,6 +13,10 @@ API_TOURNAMENT_URL = 'https://api-tournament.numer.ai'
 class NumerApiManager(object):
     def __init__(self, api_url: str=API_TOURNAMENT_URL):
         self.api_url = api_url
+        self.token = None
+
+    def set_token(self, token: tuple):
+        self.token = token
 
     def download_data_set(self, dest_path: str, dataset_path: str) -> None:
         url = self.get_link_to_current_dataset()
@@ -73,7 +77,7 @@ class NumerApiManager(object):
         '''
         return self.raw_query(query)
 
-    def get_submissions(self, submission_id: str) -> dict:
+    def get_submission(self, submission_id: str) -> dict:
         query = '''
             query($submission_id: String!) {
               submissions(id: $submission_id) {
@@ -92,6 +96,30 @@ class NumerApiManager(object):
             '''
         variable = {'submission_id': submission_id}
         return self.manager.raw_query(query, variable, authorization=True)
+
+    def get_staking_leaderboard(self, round_num: int):
+        query = '''
+            query($number: Int!) {
+              rounds(number: $number) {
+                leaderboard {
+                  consistency
+                  liveLogloss
+                  username
+                  validationLogloss
+                  stake {
+                    insertedAt
+                    soc
+                    confidence
+                    value
+                    txHash
+                  }
+
+                }
+              }
+            }
+        '''
+        arguments = {'number': round_num}
+        return self.raw_query(query, arguments)
 
     def get_link_to_current_dataset(self):
         query = "query {dataset}"

@@ -1,3 +1,6 @@
+# method names of pytest fixtures has (for some reason) no prefix, resulting in "shadows name from outer scope"
+# pylint: disable=redefined-outer-name
+
 from zope.interface import implementer
 from uuid import uuid4 as uuid
 from datetime import datetime
@@ -43,12 +46,41 @@ class MagicManager(object):
                 "datasetId": self.dataset_id
             }
 
+    class Leaderboard(object):
+        def __init__(self):
+            self.submissions = list()
+
+    class Submission(object):
+        def __init__(self, username: str):
+            self.username = username
+            self.submission_id = str(uuid())
+
     def __init__(self):
         self.competitions = list()
+        self.leaderboards = dict()
+        self.submissions = list()
+        self.stakes = list()
+        self.user_id = None
+        self.user_name = None
+
+    def set_token(self, token: tuple):
+        if token is None:
+            self.user_id = 'foo'
+            self.user_name = 'foo'
+            return
+
+        # only need the user_id
+        self.user_id, _ = token
+        self.user_name = self.user_id
 
     def _create_competition(self, number: int=-1, resolved: bool=True):
         if number == -1:
             number = len(self.competitions) + 1
+
+        if number in self.leaderboards.keys():
+            raise RuntimeError('round "%s" already exists' % str(number))
+
+        self.leaderboards[number] = MagicManager.Leaderboard()
         self.competitions.append(MagicManager.Round(number, resolved))
 
     def download_data_set(self, dest_path: str, dataset_path: str) -> None:
@@ -61,8 +93,12 @@ class MagicManager(object):
         if not os.path.exists(dataset_path):
             shutil.copy(SAMPLE_DATA_SET_PATH, dataset_path)
 
-    def get_leaderboard(self, _: int) -> dict:
+    def get_leaderboard(self, round_id: int) -> dict:
         # TODO: only include submitted solutions during tests
+
+        if round_id not in self.leaderboards:
+            raise ValueError('no such round "%s"' % str(round_id))
+
         return {
           "data": {
             "rounds": [
@@ -88,7 +124,7 @@ class MagicManager(object):
                       "value": True,
                       "pending": False
                     }
-                  }
+                  } for submission in self.leaderboards[round_id].submissions
                 ]
               }
             ]
@@ -100,6 +136,53 @@ class MagicManager(object):
             'data': {
                 'rounds': [
                     competition.to_json() for competition in self.competitions
+                ]
+            }
+        }
+
+    def get_submissions(self):
+        """
+        NumerAPI expects the manager to query for this:
+
+        query {
+              rounds(number: 0) {
+                leaderboard {
+                  username
+                  submissionId
+                }
+            }
+        }
+
+        which returns this:
+
+        {
+          "data": {
+            "rounds": [
+              {
+                "leaderboard": [
+                  {
+                    "username": "network1",
+                    "submissionId": "2a0e7b93-75e5-4e3a-b1fb-7e94bc0941e7"
+                  },
+                  {
+                    "username": "smile1",
+                    "submissionId": "61225cb4-0723-487b-8ae4-534298b2fdbd"
+                  }
+              }
+            ]
+          }
+        }
+        """
+
+        return {
+            "data": {
+                "rounds": [
+                    {
+                        "leaderboard": [{
+                            "username": submission.username,
+                            "submissionId": submission.submission_id
+                        } for submission in self.submissions]
+                    }
                 ]
             }
         }
@@ -123,7 +206,7 @@ class MagicManager(object):
             }
         }
 
-    def get_submissions(self, submission_id: str) -> dict:
+    def get_submission(self, submission_id: str) -> dict:
         # TODO: return true status from executor
         return {
             'data': {
@@ -146,53 +229,147 @@ class MagicManager(object):
 
     def upload_predictions(self, file_path: str) -> dict:
         # TODO: score and add to leaderboard
-        submission_id = str(uuid())
+        current_round = self.get_current_round()
+        round_id = current_round['data']['rounds'][0]["number"]
+        if round_id == -1:
+            raise RuntimeError('before testing upload, create at least one competition first')
+
+        submission = MagicManager.Submission(username=self.user_id)
+        self.submissions.append(submission)
+
         return {
             'data': {
                 'create_submission': {
-                    'id': submission_id
+                    'id': submission.submission_id
                 }
             }
+        }
+
+    def get_staking_leaderboard(self, round_num: int):
+        """
+        expects the following type of result:
+
+        {
+          "data": {
+            "rounds": [
+              {
+                "leaderboard": [
+                  {
+                    "validationLogloss": 0.6863094945379241,
+                    "username": "doomgloom",
+                    "stake": {
+                      "value": null,
+                      "txHash": null,
+                      "soc": null,
+                      "insertedAt": null,
+                      "confidence": null
+                    },
+                    "liveLogloss": null,
+                    "consistency": 91.66666666666666
+                  },
+                  {
+                    "validationLogloss": 0.6945099681690601,
+                    "username": "jenson3",
+                    "stake": {
+                      "value": null,
+                      "txHash": null,
+                      "soc": null,
+                      "insertedAt": null,
+                      "confidence": null
+                    },
+                    "liveLogloss": null,
+                    "consistency": 75
+                  }
+                ]
+              }
+            ]
+          }
+        }
+
+        :param round_num:
+        :return:
+        """
+        if round_num not in self.stakes:
+            return {
+              "data": {
+                "rounds": [
+                  {
+                    "leaderboard": []
+                  }
+                ]
+              }
+            }
+
+        return {
+          "data": {
+            "rounds": [
+              {
+                "leaderboard": [
+                  {
+                    "validationLogloss": stake.validation_logloss,
+                    "username": stake.user_name,
+                    "stake": {
+                      "value": stake.value,
+                      "txHash": stake.tx_hash,
+                      "soc": stake.soc,
+                      "insertedAt": stake.inserted_at,
+                      "confidence": stake.confidence
+                    },
+                    "liveLogloss": stake.live_logloss,
+                    "consistency": stake.consistency
+                  } for stake in self.stakes[round_num]
+                ]
+              }
+            ]
+          }
         }
 
     def raw_query(self, query, variables=None, authorization=False):
         raise NotImplementedError('do not call this method for this implementation')
 
 
-def test_magic_manager_download():
-    manager = MagicManager()
+@pytest.fixture(name='api', scope='function')
+def fixture_for_api():
+    magic_manager = MagicManager()
+    magic_manager._create_competition(1, resolved=False)
+    return NumerAPI(public_id='foo', secret_key='bar', manager=magic_manager)
+
+
+def test_magic_manager_download(api: NumerAPI):
     import tempfile
 
     with tempfile.TemporaryDirectory() as dest_path:
-        dataset_path = os.path.join(dest_path, 'thedata.zip')
-        assert not os.path.exists(dataset_path)
+        data_set_path = os.path.join(dest_path, 'thedata.zip')
+        assert not os.path.exists(data_set_path)
 
-        manager.download_data_set(dest_path, dataset_path)
-        assert os.path.exists(dataset_path)
+        api.manager.download_data_set(dest_path, data_set_path)
+        assert os.path.exists(data_set_path)
 
 
-def test_get_leaderboard():
+def test_get_leaderboard_returns_empty_list():
+    # don't use fixture here, create our own competition
     api = NumerAPI(manager=MagicManager())
+    api.manager._create_competition(number=67)
     lb = api.get_leaderboard(67)
-    assert len(lb) > 0  # TODO: check our submission is here instead
+    assert isinstance(lb, list)
+    assert len(lb) == 0  # TODO: check our submission is here instead
 
 
-def test_upload_predictions():
+def test_upload_predictions(api: NumerAPI):
     # TODO: verify status of our upload is pending
-    api = NumerAPI(manager=MagicManager())
     submission_id = api.upload_predictions('some/path.csv')
     assert len(submission_id.strip()) > 0
 
 
 def test_get_competitions():
-    manager = MagicManager()
-    api = NumerAPI(manager=manager)
+    # don't use fixtures here, create our own competitions
+    api = NumerAPI(manager=MagicManager())
     all_competitions = api.get_competitions()
     assert isinstance(all_competitions, list)
     assert len(all_competitions) == 0
 
     round_number = 42
-    manager._create_competition(number=round_number)
+    api.manager._create_competition(number=round_number)
 
     all_competitions = api.get_competitions()
     assert isinstance(all_competitions, list)
@@ -200,8 +377,7 @@ def test_get_competitions():
     assert all_competitions[0]['number'] == round_number
 
 
-def test_download_current_dataset():
-    api = NumerAPI(manager=MagicManager())
+def test_download_current_dataset(api: NumerAPI):
     directory = None
     csv_files = ['numerai_tournament_data.csv', 'numerai_training_data.csv']
 
@@ -223,27 +399,63 @@ def test_download_current_dataset():
 
 
 def test_get_current_round():
-    manager = MagicManager()
-    api = NumerAPI(manager=manager)
-
-    manager._create_competition(number=1)
+    # don't use fixture here, create our own rounds
+    api = NumerAPI(public_id='foo', secret_key='bar', manager=MagicManager())
+    api.manager._create_competition(number=1)
     current_round = api.get_current_round()
     assert current_round == 1
 
-    manager._create_competition(number=2)
+    api.manager._create_competition(number=2)
     current_round = api.get_current_round()
     assert current_round == 2
 
 
-def test_get_submission_ids():
-    manager = MagicManager()
-    api = NumerAPI(manager=manager)
+def test_upload_submission_returns_submission_id(api: NumerAPI):
+    submission_id = api.upload_predictions('foo')
+    assert isinstance(submission_id, str)
+    assert len(submission_id) > 0
+
+
+def test_get_submission_ids_empty_before_upload(api: NumerAPI):
     ids = api.get_submission_ids()
-    assert len(ids) > 0
+    assert len(ids) == 0
+
+
+def test_get_submission_ids_contains_uploaded_submission(api: NumerAPI):
+    submission_id = api.upload_predictions('foo')
+    ids = api.get_submission_ids()
+    assert len(ids) == 1
     assert isinstance(ids, dict)
+    assert api.manager.user_name in ids
+    assert ids[api.manager.user_name] == submission_id
+
+
+def test_get_staking_leaderboard_no_submissions(api: NumerAPI):
+    stakes = api.get_staking_leaderboard(82)
+    assert len(stakes) == 0
+
+
+def test_error_handling_get_leaderboard_str_id(api: NumerAPI):
+    # String instead of Int
+    with pytest.raises(ValueError):
+        api.get_leaderboard("foo")
+
+
+def test_error_handling_get_leaderboard_unknown_round_id(api: NumerAPI):
+    # round that doesn't exist
+    with pytest.raises(ValueError):
+        api.get_leaderboard(-1)
 
 
 """
+
+def test_error_handling_submission_status_no_auth(api: NumerAPI):
+    # unauthenticated request
+    with pytest.raises(ValueError):
+        # set wrong token
+        api.token = ("foo", "bar")
+        api.submission_id = 1
+        api.submission_status()
 
 def test_raw_query():
     api = NumerAPI()
@@ -253,27 +465,6 @@ def test_raw_query():
     assert "data" in result
 
 
-def test_get_staking_leaderboard():
-    api = NumerAPI()
-    stakes = api.get_staking_leaderboard(82)
-    # 115 people staked that round
-    assert len(stakes) == 115
 
 
-
-
-def test_error_handling():
-    api = NumerAPI()
-    # String instead of Int
-    with pytest.raises(ValueError):
-        api.get_leaderboard("foo")
-    # round that doesn't exist
-    with pytest.raises(ValueError):
-        api.get_leaderboard(-1)
-    # unauthendicated request
-    with pytest.raises(ValueError):
-        # set wrong token
-        api.token = ("foo", "bar")
-        api.submission_id = 1
-        api.submission_status()
 """

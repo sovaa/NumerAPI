@@ -2,6 +2,21 @@ from zope.interface import Interface
 
 
 class IManager(Interface):
+    def set_token(self, token: tuple):
+        """
+        set the token tuple (public_id, secret_key)
+
+        :param token:
+        :return:
+        """
+
+    def get_staking_leaderboard(self, round_num: int):
+        """
+
+        :param round_num:
+        :return:
+        """
+
     def download_data_set(self, dest_path: str, dataset_path: str) -> None:
         """
 
