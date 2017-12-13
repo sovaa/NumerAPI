@@ -20,3 +20,13 @@ jobs:
             . venv/bin/activate
             flake8 --config=./.flake8 ./
             find . -iname "*.py" ! -name "setup.py" ! -name "example.py" ! -name "__init__.py" ! -path "./venv/*" | xargs pylint --rcfile=./.pylintrc
+      - run:
+          name: Run Unit Tests
+          command: |
+            . venv/bin/activate
+            pytest ./tests/test_numerapi.py
+      - run:
+          name: Run Integration Tests
+          command: |
+            . venv/bin/activate
+            pytest ./tests/test_integration.py
