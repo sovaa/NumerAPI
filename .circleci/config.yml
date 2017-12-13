@@ -8,25 +8,15 @@ jobs:
       - image: circleci/mongo:3.0.14
     steps:
       - checkout
-      - run: 
+      - run:
           name: Install Python Dependencies
           command: |
             python3 -m venv venv
             . venv/bin/activate
-            cd ~/repo && pip install -r test_requirements.txt | tee
+            cd ~/repo && pip install -e . | tee
       - run:
           name: Lint Python Packages
           command: |
             . venv/bin/activate
             flake8 --config=./.flake8 ./
             find . -iname "*.py" ! -name "setup.py" ! -name "example.py" ! -name "__init__.py" ! -path "./venv/*" | xargs pylint --rcfile=./.pylintrc
-      - run:
-          name: Run Unit Tests
-          command: |
-            . venv/bin/activate
-            pytest ./tests/test_numerapi.py
-      - run:
-          name: Run Integration Tests
-          command: |
-            . venv/bin/activate
-            pytest ./tests/test_integration.py
