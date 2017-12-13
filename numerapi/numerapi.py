@@ -7,13 +7,13 @@ import os
 import zipfile
 
 from numerapi.api_manager import NumerApiManager
-from numerapi.manager import IManager
+from numerapi.manager import NumerManager
 
 
 class NumerAPI(object):
     """Wrapper around the Numerai API"""
 
-    def __init__(self, public_id=None, secret_key=None, verbosity="INFO", manager: IManager = NumerApiManager()):
+    def __init__(self, public_id=None, secret_key=None, verbosity="INFO", manager: NumerManager = NumerApiManager()):
         """
         initialize Numerai API wrapper for Python
 
@@ -45,11 +45,11 @@ class NumerAPI(object):
         self.submission_id = None
 
     @property
-    def manager(self) -> IManager:
+    def manager(self) -> NumerManager:
         return self._manager
 
     @manager.setter
-    def manager(self, manager: IManager):
+    def manager(self, manager: NumerManager):
         self._manager = manager
 
     def download_current_dataset(self, dest_path=".", dest_filename=None,
@@ -224,30 +224,4 @@ class NumerAPI(object):
         confidence: your confidence (C) value
         value: amount of NMR you are willing to stake
         """
-        # TODO: does not seem to be complete
-
-        query = '''
-          mutation($code: String,
-            $confidence: String!
-            $password: String
-            $round: Int!
-            $value: String!) {
-              stake(code: $code
-                    confidence: $confidence
-                    password: $password
-                    round: $round
-                    value: $value) {
-                id
-                status
-                txHash
-                value
-              }
-        }
-        '''
-        arguments = {'code': 'somecode',
-                     'confidence': str(confidence),
-                     'password': "somepassword",
-                     'round': self.get_current_round(),
-                     'value': str(value)}
-        result = self.manager.raw_query(query, arguments, authorization=True)
-        return result['data']
+        return self.manager.stake(confidence, value)['data']

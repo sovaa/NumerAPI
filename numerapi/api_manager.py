@@ -3,15 +3,13 @@ import os
 from typing import Union
 
 import requests
-from zope.interface import implementer
 
-from numerapi.manager import IManager
+from numerapi.manager import NumerManager
 
 API_TOURNAMENT_URL = 'https://api-tournament.numer.ai'
 
 
-@implementer(IManager)
-class NumerApiManager(object):
+class NumerApiManager(NumerManager):
     def __init__(self, api_url: str = API_TOURNAMENT_URL):
         self.api_url = api_url
         self.token = None
@@ -306,6 +304,33 @@ class NumerApiManager(object):
           }
         """
         return self.raw_query(query, authorization=True)
+
+    def stake(self, confidence, value):
+        query = '''
+          mutation($code: String,
+            $confidence: String!
+            $password: String
+            $round: Int!
+            $value: String!) {
+              stake(code: $code
+                    confidence: $confidence
+                    password: $password
+                    round: $round
+                    value: $value) {
+                id
+                status
+                txHash
+                value
+              }
+        }
+        '''
+        current_round = self.get_current_round()['data']['rounds'][0]['number']
+        arguments = {'code': 'somecode',
+                     'confidence': str(confidence),
+                     'password': "somepassword",
+                     'round': current_round,
+                     'value': str(value)}
+        return self.raw_query(query, arguments, authorization=True)
 
     def raw_query(self, query, variables=None, authorization=False):
         """send a raw request to the Numerai's GraphQL API

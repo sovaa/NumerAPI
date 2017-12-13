@@ -8,10 +8,9 @@ from typing import Generator
 from uuid import uuid4 as uuid
 
 import pytest
-from zope.interface import implementer
 
 from numerapi import NumerAPI
-from numerapi.manager import IManager
+from numerapi.manager import NumerManager
 
 SAMPLE_DATA_SET_PATH = 'tests/data/numerai_dataset.zip'
 SAMPLE_DATA_DIR = 'tests/data/'
@@ -25,8 +24,7 @@ NAME_TOURN_CSV = 'numerai_tournament_data.csv'
 DATE_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 
 
-@implementer(IManager)
-class NumerMockManager(object):
+class NumerMockManager(NumerManager):
     class Round(object):
         def __init__(self, number: int = 1, resolved: bool = True):
             self.number = number
@@ -119,9 +117,9 @@ class NumerMockManager(object):
         if not os.path.exists(dataset_path):
             shutil.copy(SAMPLE_DATA_SET_PATH, dataset_path)
 
-    def get_leaderboard(self, round_id: int) -> dict:
-        if round_id not in self.leaderboards:
-            raise ValueError('no such round "%s"' % str(round_id))
+    def get_leaderboard(self, round_num: int) -> dict:
+        if round_num not in self.leaderboards:
+            raise ValueError('no such round "%s"' % str(round_num))
 
         return {
             "data": {
@@ -149,7 +147,7 @@ class NumerMockManager(object):
                                     "pending": submission.concordance_pending
                                 }
                             } for submission in type_hint_submissions(
-                                self.leaderboards[round_id].submissions)
+                                self.leaderboards[round_num].submissions)
                         ]
                     }
                 ]
@@ -166,38 +164,6 @@ class NumerMockManager(object):
         }
 
     def get_submission_ids(self):
-        """
-        NumerAPI expects the manager to query for this:
-
-        query {
-              rounds(number: 0) {
-                leaderboard {
-                  username
-                  submissionId
-                }
-            }
-        }
-
-        which returns this:
-
-        {
-          "data": {
-            "rounds": [
-              {
-                "leaderboard": [
-                  {
-                    "username": "network1",
-                    "submissionId": "2a0e7b93-75e5-4e3a-b1fb-7e94bc0941e7"
-                  },
-                  {
-                    "username": "smile1",
-                    "submissionId": "61225cb4-0723-487b-8ae4-534298b2fdbd"
-                  }
-              }
-            ]
-          }
-        }
-        """
         current_round_id = self.get_current_round()['data']['rounds'][0]['number']
 
         return {
@@ -215,6 +181,22 @@ class NumerMockManager(object):
                 ]
             }
         }
+
+    def stake(self, confidence, value):
+        # TODO: implement
+        raise NotImplementedError()
+
+    def get_stakes(self):
+        # TODO: implement
+        raise NotImplementedError()
+
+    def get_payments(self):
+        # TODO: implement
+        raise NotImplementedError()
+
+    def get_transactions(self):
+        # TODO: implement
+        raise NotImplementedError()
 
     def get_current_round(self) -> dict:
         rounds = self.competitions.copy()
@@ -282,49 +264,6 @@ class NumerMockManager(object):
         }
 
     def get_staking_leaderboard(self, round_num: int):
-        """
-        expects the following type of result:
-
-        {
-          "data": {
-            "rounds": [
-              {
-                "leaderboard": [
-                  {
-                    "validationLogloss": 0.6863094945379241,
-                    "username": "doomgloom",
-                    "stake": {
-                      "value": null,
-                      "txHash": null,
-                      "soc": null,
-                      "insertedAt": null,
-                      "confidence": null
-                    },
-                    "liveLogloss": null,
-                    "consistency": 91.66666666666666
-                  },
-                  {
-                    "validationLogloss": 0.6945099681690601,
-                    "username": "jenson3",
-                    "stake": {
-                      "value": null,
-                      "txHash": null,
-                      "soc": null,
-                      "insertedAt": null,
-                      "confidence": null
-                    },
-                    "liveLogloss": null,
-                    "consistency": 75
-                  }
-                ]
-              }
-            ]
-          }
-        }
-
-        :param round_num:
-        :return:
-        """
         if round_num not in self.stakes:
             return {
                 "data": {
@@ -361,29 +300,6 @@ class NumerMockManager(object):
         }
 
     def get_user(self):
-        """
-        expects this:
-        query {
-            user {
-              username
-              banned
-              assignedEthAddress
-              availableNmr
-              availableUsd
-              email
-              id
-              mfaEnabled
-              status
-              insertedAt
-              apiTokens {
-                name
-                public_id
-                scopes
-              }
-            }
-          }
-        :return:
-        """
         # TODO: add more if needed
         return {
             "data": {
